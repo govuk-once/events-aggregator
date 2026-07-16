@@ -169,3 +169,9 @@ cdk/
   cdk_constructs/         # Shared CDK constructs (from service-template)
   constants/              # Service metadata, environment helpers
 ```
+
+## TODO
+
+- [ ] Scope Lambda IAM role to `execute-api:Invoke` on the UNS API ARN only (blocked on UNS account/ARN details)
+- [ ] Populate full country mapping from live `/api/content/foreign-travel-advice` endpoint (currently 226, but new countries may appear)
+- [ ] Wire up IAM cross-account trust for SigV4 calls to UNS
