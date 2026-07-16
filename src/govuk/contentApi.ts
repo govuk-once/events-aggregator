@@ -10,7 +10,9 @@ export async function fetchCountryContent(
   const url = `${CONTENT_BASE}/foreign-travel-advice/${slug}`;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(8_000),
+    });
 
     if (response.ok) {
       return (await response.json()) as ContentApiResponse;

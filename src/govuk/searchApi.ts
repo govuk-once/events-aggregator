@@ -19,7 +19,9 @@ export async function fetchChangedTravelAdvice(
   fromTimestamp: string,
 ): Promise<SearchResponse> {
   const url = buildSearchUrl(fromTimestamp);
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    signal: AbortSignal.timeout(10_000),
+  });
 
   if (!response.ok) {
     throw new Error(

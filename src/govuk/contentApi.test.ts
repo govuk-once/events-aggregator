@@ -36,6 +36,7 @@ describe('contentApi', () => {
       expect(result).toEqual(mockContent);
       expect(fetch).toHaveBeenCalledWith(
         'https://www.gov.uk/api/content/foreign-travel-advice/pakistan',
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
       );
     });
 

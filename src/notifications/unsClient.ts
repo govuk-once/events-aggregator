@@ -54,6 +54,7 @@ export async function publishToUns(
     method: 'POST',
     headers,
     body,
+    signal: AbortSignal.timeout(10_000),
   });
 
   if (!response.ok) {
