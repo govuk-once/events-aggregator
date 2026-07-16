@@ -70,6 +70,7 @@ export class EventsAggregatorStack extends cdk.Stack {
         runtime: cdk.aws_lambda.Runtime.NODEJS_22_X,
         memorySize: 256,
         timeout: cdk.Duration.seconds(60),
+        environmentEncryption: logKey,
         environment: {
           SERVICE_NAME: props.serviceName,
           ENVIRONMENT: props.environment,

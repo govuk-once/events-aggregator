@@ -11,7 +11,6 @@ skip-check:
   - CKV_AWS_115 # Lambda function concurrent execution limit
   - CKV_AWS_116 # Lambda function DLQ
   - CKV_AWS_117 # Lambda function VPC configuration
-  - CKV_AWS_173 # Lambda environment variable encryption
   # - CKV_AWS_18  # Example: S3 bucket logging
   # - CKV_AWS_19  # Example: S3 bucket encryption
 
