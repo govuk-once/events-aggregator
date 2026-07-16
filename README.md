@@ -172,6 +172,7 @@ cdk/
 
 ## TODO
 
+- [ ] Configure Lambda in VPC with access to UNS private API Gateway endpoint (same pattern as Flex)
 - [ ] Scope Lambda IAM role to `execute-api:Invoke` on the UNS API ARN only (blocked on UNS account/ARN details)
+- [ ] Wire up IAM cross-account trust for SigV4 calls to UNS (UNS needs our account ID + VPC endpoint ID in its config)
 - [ ] Populate full country mapping from live `/api/content/foreign-travel-advice` endpoint (currently 226, but new countries may appear)
-- [ ] Wire up IAM cross-account trust for SigV4 calls to UNS
