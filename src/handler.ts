@@ -30,32 +30,77 @@ interface HandlerInput {
   windowStart?: string;
 }
 
+interface ResolvedInput {
+  schedule: 'hourly' | 'daily' | 'weekly';
+  dryRun: boolean;
+  country: string | undefined;
+  windowStart: string;
+  unsConfig: ReturnType<typeof getUnsConfig> | undefined;
+}
+
+function resolveInput(event: ScheduledEvent): ResolvedInput {
+  const input = event as unknown as HandlerInput;
+
+  if (!isValidSchedule(input.schedule)) {
+    const sanitised = String(input.schedule ?? '')
+      .slice(0, 50)
+      .replace(/[\n\r]/g, '');
+    throw new Error(`Invalid schedule: ${sanitised}`);
+  }
+
+  const schedule = input.schedule;
+  const isEphemeral = !['prod', 'stag'].includes(
+    process.env.ENVIRONMENT ?? '',
+  );
+  const dryRun = isEphemeral ? (input.dryRun ?? false) : false;
+  const country = isEphemeral ? input.country : undefined;
+  const windowStart = isEphemeral
+    ? (input.windowStart ?? getTimeWindow(schedule))
+    : getTimeWindow(schedule);
+  const unsConfig = dryRun ? undefined : getUnsConfig();
+
+  return { schedule, dryRun, country, windowStart, unsConfig };
+}
+
+function filterSupportedCountries(
+  results: { content_id?: string; title: string; link: string }[],
+  countryFilter: string | undefined,
+): string[] {
+  const slugs: string[] = [];
+
+  for (const result of results) {
+    const contentId = result.content_id;
+    if (!contentId) continue;
+
+    const resolved = resolveCountry(contentId);
+
+    if (resolved.status === 'unknown') {
+      logger.warn('Unknown country detected', {
+        event: 'unknown_country',
+        content_id: contentId,
+        title: result.title,
+        link: result.link,
+      });
+      continue;
+    }
+
+    if (resolved.status === 'unsupported') continue;
+    if (countryFilter && resolved.country.slug !== countryFilter) continue;
+
+    slugs.push(resolved.country.slug);
+  }
+
+  return slugs;
+}
+
 export const handler = async (event: ScheduledEvent): Promise<void> => {
   const segment = tracer.getSegment()!;
   const subsegment = segment.addNewSubsegment('## handler');
   tracer.setSegment(subsegment);
 
   try {
-    const input = event as unknown as HandlerInput;
-
-    if (!isValidSchedule(input.schedule)) {
-      const sanitised = String(input.schedule ?? '')
-        .slice(0, 50)
-        .replace(/[\n\r]/g, '');
-      logger.error('Invalid schedule input', { schedule: sanitised });
-      throw new Error(`Invalid schedule: ${sanitised}`);
-    }
-
-    const schedule = input.schedule;
-    const isEphemeral = !['prod', 'stag'].includes(
-      process.env.ENVIRONMENT ?? '',
-    );
-    const dryRun = isEphemeral ? (input.dryRun ?? false) : false;
-    const country = isEphemeral ? input.country : undefined;
-    const windowStart = isEphemeral
-      ? (input.windowStart ?? getTimeWindow(schedule))
-      : getTimeWindow(schedule);
-    const unsConfig = dryRun ? undefined : getUnsConfig();
+    const { schedule, dryRun, country, windowStart, unsConfig } =
+      resolveInput(event);
     logger.info('Starting poll', { schedule, windowStart, dryRun, country });
 
     const searchResponse = await fetchChangedTravelAdvice(windowStart);
@@ -69,29 +114,10 @@ export const handler = async (event: ScheduledEvent): Promise<void> => {
       return;
     }
 
-    const supportedSlugs: string[] = [];
-    for (const result of searchResponse.results) {
-      const contentId = result.content_id;
-      if (!contentId) continue;
-
-      const resolved = resolveCountry(contentId);
-
-      if (resolved.status === 'unknown') {
-        logger.warn('Unknown country detected', {
-          event: 'unknown_country',
-          content_id: contentId,
-          title: result.title,
-          link: result.link,
-        });
-        continue;
-      }
-
-      if (resolved.status === 'unsupported') continue;
-
-      if (country && resolved.country.slug !== country) continue;
-
-      supportedSlugs.push(resolved.country.slug);
-    }
+    const supportedSlugs = filterSupportedCountries(
+      searchResponse.results,
+      country,
+    );
 
     if (supportedSlugs.length === 0) {
       logger.info('No supported countries changed, exiting');
