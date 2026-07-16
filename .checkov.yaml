@@ -8,8 +8,7 @@ directory:
 # Skip specific checks (add check IDs as needed)
 skip-check:
   # Lambda checks for example function
-  - CKV_AWS_115 # Lambda function concurrent execution limit
-  - CKV_AWS_116 # Lambda function DLQ
+  - CKV_AWS_116 # Lambda function DLQ - EventBridge retries are sufficient for a scheduled poller
   - CKV_AWS_117 # Lambda function VPC configuration
   # - CKV_AWS_18  # Example: S3 bucket logging
   # - CKV_AWS_19  # Example: S3 bucket encryption
