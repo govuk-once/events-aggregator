@@ -143,13 +143,13 @@ describe('handler integration', () => {
     expect(unsCalls).toHaveLength(2);
 
     const pakistanPublish = JSON.parse(unsCalls[0].options?.body as string);
-    expect(pakistanPublish.topic).toBe('travel-advice.pakistan.hourly');
+    expect(pakistanPublish.topic).toBe('travel-advice/pakistan/hourly');
     expect(pakistanPublish.NotificationTitle).toBe('Pakistan travel advice updated');
     expect(pakistanPublish.NotificationBody).toContain('Updated safety information');
     expect(pakistanPublish.NotificationID).toMatch(/^[a-f0-9]{64}$/);
 
     const francePublish = JSON.parse(unsCalls[1].options?.body as string);
-    expect(francePublish.topic).toBe('travel-advice.france.hourly');
+    expect(francePublish.topic).toBe('travel-advice/france/hourly');
   });
 
   it('skips unknown countries and logs warning', async () => {
@@ -273,7 +273,7 @@ describe('handler integration', () => {
     expect(unsCalls).toHaveLength(1);
 
     const francePublish = JSON.parse(unsCalls[0].options?.body as string);
-    expect(francePublish.topic).toBe('travel-advice.france.weekly');
+    expect(francePublish.topic).toBe('travel-advice/france/weekly');
   });
 
   it('uses correct time window for each schedule', async () => {

@@ -98,7 +98,7 @@ export const handler = async (event: ScheduledEvent): Promise<void> => {
 
     if (!message) continue;
 
-    const topic = `travel-advice.${slug}.${schedule}`;
+    const topic = `travel-advice/${slug}/${schedule}`;
 
     if (dryRun) {
       logger.info('DRY RUN — would publish', {

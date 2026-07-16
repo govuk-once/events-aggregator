@@ -46,7 +46,7 @@ Three EventBridge schedules (hourly, daily, weekly) trigger the same Lambda with
 2. Resolves each result against an in-code country mapping (keyed on `content_id`)
 3. Fetches full change history from the GOV.UK Content API (rate-limited to 10 req/s)
 4. Builds notification messages from relevant changes
-5. Publishes to UNS with a topic per country/frequency (e.g. `travel-advice.pakistan.weekly`)
+5. Publishes to UNS with a topic per country/frequency (e.g. `travel-advice/pakistan/weekly`)
 
 Unknown countries are logged for manual triage. Failed content fetches are retried 3x with backoff, then skipped — other countries continue.
 
@@ -104,10 +104,19 @@ In production, EventBridge rules pass only `{"schedule": "hourly"}`. The other f
 
 ## Notification message format
 
-Messages published to UNS follow its existing contract:
+Messages are published to a UNS topic per country and frequency:
+
+```
+travel-advice/{country-slug}/{frequency}
+```
+
+For example: `travel-advice/pakistan/weekly`, `travel-advice/mexico/hourly`
+
+Each message follows the UNS notification contract:
 
 | Field | Description |
 |-------|-------------|
+| `topic` | Target topic (e.g. `travel-advice/pakistan/weekly`) |
 | `NotificationID` | SHA-256 dedup marker (slug + schedule + change content) |
 | `NotificationTitle` | Push notification title (e.g. "Pakistan travel advice updated") |
 | `NotificationBody` | Push notification body (latest change note, or count summary) |
