@@ -19,7 +19,9 @@ export function buildMessage(
 ): NotificationMessage | null {
   const windowStartMs = new Date(windowStart).getTime();
   const relevantChanges = changeHistory
-    .filter((entry) => new Date(entry.public_timestamp).getTime() >= windowStartMs)
+    .filter(
+      (entry) => new Date(entry.public_timestamp).getTime() >= windowStartMs,
+    )
     .map((entry) => ({
       note: entry.note,
       timestamp: entry.public_timestamp,
@@ -27,19 +29,23 @@ export function buildMessage(
 
   if (relevantChanges.length === 0) return null;
 
-  const dedupMarker = computeDedupMarker(countrySlug, schedule, relevantChanges);
+  const dedupMarker = computeDedupMarker(
+    countrySlug,
+    schedule,
+    relevantChanges,
+  );
 
-  const notificationTitle = relevantChanges.length === 1
-    ? `${countryName} updated`
-    : `${countryName}: ${relevantChanges.length} updates`;
+  const notificationTitle =
+    relevantChanges.length === 1
+      ? `${countryName} updated`
+      : `${countryName}: ${relevantChanges.length} updates`;
 
-  const notificationBody = relevantChanges.length === 1
-    ? relevantChanges[0].note
-    : `${relevantChanges.length} changes in the ${schedule} digest`;
+  const notificationBody =
+    relevantChanges.length === 1
+      ? relevantChanges[0].note
+      : `${relevantChanges.length} changes in the ${schedule} digest`;
 
-  const messageBody = relevantChanges
-    .map((c) => `- ${c.note}`)
-    .join('\n');
+  const messageBody = relevantChanges.map((c) => `- ${c.note}`).join('\n');
 
   return {
     NotificationID: dedupMarker,

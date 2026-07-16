@@ -23,11 +23,7 @@ export interface EventsAggregatorStackProps extends cdk.StackProps {
 }
 
 export class EventsAggregatorStack extends cdk.Stack {
-  constructor(
-    scope: Construct,
-    id: string,
-    props: EventsAggregatorStackProps,
-  ) {
+  constructor(scope: Construct, id: string, props: EventsAggregatorStackProps) {
     super(scope, id, props);
 
     cdk.Tags.of(this).add('ServiceName', props.serviceName);
@@ -93,7 +89,11 @@ export class EventsAggregatorStack extends cdk.Stack {
       },
     );
 
-    const schedules: { name: string; schedule: events.Schedule; input: string }[] = [
+    const schedules: {
+      name: string;
+      schedule: events.Schedule;
+      input: string;
+    }[] = [
       {
         name: 'Hourly',
         schedule: events.Schedule.rate(cdk.Duration.hours(1)),

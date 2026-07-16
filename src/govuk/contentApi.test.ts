@@ -63,12 +63,14 @@ describe('contentApi', () => {
         .mockResolvedValueOnce({
           ok: true,
           text: () =>
-            Promise.resolve(JSON.stringify({
-              content_id: 'abc',
-              title: 'Test',
-              base_path: '/test',
-              details: {},
-            })),
+            Promise.resolve(
+              JSON.stringify({
+                content_id: 'abc',
+                title: 'Test',
+                base_path: '/test',
+                details: {},
+              }),
+            ),
         });
 
       vi.stubGlobal('fetch', mockFetch);
@@ -89,12 +91,14 @@ describe('contentApi', () => {
         .mockResolvedValueOnce({
           ok: true,
           text: () =>
-            Promise.resolve(JSON.stringify({
-              content_id: '1',
-              title: 'France',
-              base_path: '/test',
-              details: {},
-            })),
+            Promise.resolve(
+              JSON.stringify({
+                content_id: '1',
+                title: 'France',
+                base_path: '/test',
+                details: {},
+              }),
+            ),
         })
         .mockResolvedValueOnce({
           ok: false,
@@ -120,9 +124,12 @@ describe('contentApi', () => {
       vi.stubGlobal('fetch', mockFetch);
 
       const errors: { slug: string; error: Error }[] = [];
-      const promise = fetchCountriesBatch(['france', 'spain'], (slug, error) => {
-        errors.push({ slug, error });
-      });
+      const promise = fetchCountriesBatch(
+        ['france', 'spain'],
+        (slug, error) => {
+          errors.push({ slug, error });
+        },
+      );
 
       await vi.advanceTimersByTimeAsync(10000);
       const results = await promise;

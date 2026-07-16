@@ -84,54 +84,70 @@ describe('handler integration', () => {
   });
 
   it('full flow: search → content → publish for supported countries', async () => {
-    const mockFetch = vi.fn().mockImplementation((url: string | URL, options?: RequestInit) => {
-      const urlStr = url.toString();
-      fetchCalls.push({ url: urlStr, options });
+    const mockFetch = vi
+      .fn()
+      .mockImplementation((url: string | URL, options?: RequestInit) => {
+        const urlStr = url.toString();
+        fetchCalls.push({ url: urlStr, options });
 
-      if (urlStr.includes('/api/search.json')) {
+        if (urlStr.includes('/api/search.json')) {
+          return Promise.resolve({
+            ok: true,
+            text: () =>
+              Promise.resolve(
+                JSON.stringify(
+                  mockSearchResponse([PAKISTAN_CONTENT_ID, FRANCE_CONTENT_ID]),
+                ),
+              ),
+          });
+        }
+
+        if (urlStr.includes('/api/content/foreign-travel-advice/pakistan')) {
+          return Promise.resolve({
+            ok: true,
+            text: () =>
+              Promise.resolve(
+                JSON.stringify(
+                  mockContentResponse('pakistan', recentTimestamp(10)),
+                ),
+              ),
+          });
+        }
+
+        if (urlStr.includes('/api/content/foreign-travel-advice/france')) {
+          return Promise.resolve({
+            ok: true,
+            text: () =>
+              Promise.resolve(
+                JSON.stringify(
+                  mockContentResponse('france', recentTimestamp(5)),
+                ),
+              ),
+          });
+        }
+
+        if (urlStr.includes('uns.example.com/messages')) {
+          return Promise.resolve({ ok: true });
+        }
+
         return Promise.resolve({
-          ok: true,
-          text: () =>
-            Promise.resolve(
-              JSON.stringify(mockSearchResponse([PAKISTAN_CONTENT_ID, FRANCE_CONTENT_ID])),
-            ),
+          ok: false,
+          status: 404,
+          statusText: 'Not Found',
         });
-      }
-
-      if (urlStr.includes('/api/content/foreign-travel-advice/pakistan')) {
-        return Promise.resolve({
-          ok: true,
-          text: () =>
-            Promise.resolve(
-              JSON.stringify(mockContentResponse('pakistan', recentTimestamp(10))),
-            ),
-        });
-      }
-
-      if (urlStr.includes('/api/content/foreign-travel-advice/france')) {
-        return Promise.resolve({
-          ok: true,
-          text: () =>
-            Promise.resolve(
-              JSON.stringify(mockContentResponse('france', recentTimestamp(5))),
-            ),
-        });
-      }
-
-      if (urlStr.includes('uns.example.com/messages')) {
-        return Promise.resolve({ ok: true });
-      }
-
-      return Promise.resolve({ ok: false, status: 404, statusText: 'Not Found' });
-    });
+      });
 
     vi.stubGlobal('fetch', mockFetch);
 
     await handler(createScheduledEvent('hourly'));
 
-    const searchCall = fetchCalls.find((c) => c.url.includes('/api/search.json'));
+    const searchCall = fetchCalls.find((c) =>
+      c.url.includes('/api/search.json'),
+    );
     expect(searchCall).toBeDefined();
-    expect(searchCall!.url).toContain('filter_content_store_document_type=travel_advice');
+    expect(searchCall!.url).toContain(
+      'filter_content_store_document_type=travel_advice',
+    );
     expect(searchCall!.url).toContain('filter_public_timestamp=from');
 
     const contentCalls = fetchCalls.filter((c) =>
@@ -146,8 +162,12 @@ describe('handler integration', () => {
 
     const pakistanPublish = JSON.parse(unsCalls[0].options?.body as string);
     expect(pakistanPublish.topic).toBe('travel-advice/pakistan/hourly');
-    expect(pakistanPublish.NotificationTitle).toBe('Pakistan travel advice updated');
-    expect(pakistanPublish.NotificationBody).toContain('Updated safety information');
+    expect(pakistanPublish.NotificationTitle).toBe(
+      'Pakistan travel advice updated',
+    );
+    expect(pakistanPublish.NotificationBody).toContain(
+      'Updated safety information',
+    );
     expect(pakistanPublish.NotificationID).toMatch(/^[a-f0-9]{64}$/);
 
     const francePublish = JSON.parse(unsCalls[1].options?.body as string);
@@ -155,36 +175,46 @@ describe('handler integration', () => {
   });
 
   it('skips unknown countries and logs warning', async () => {
-    const mockFetch = vi.fn().mockImplementation((url: string | URL, options?: RequestInit) => {
-      const urlStr = url.toString();
-      fetchCalls.push({ url: urlStr, options });
+    const mockFetch = vi
+      .fn()
+      .mockImplementation((url: string | URL, options?: RequestInit) => {
+        const urlStr = url.toString();
+        fetchCalls.push({ url: urlStr, options });
 
-      if (urlStr.includes('/api/search.json')) {
+        if (urlStr.includes('/api/search.json')) {
+          return Promise.resolve({
+            ok: true,
+            text: () =>
+              Promise.resolve(
+                JSON.stringify(
+                  mockSearchResponse([UNKNOWN_CONTENT_ID, PAKISTAN_CONTENT_ID]),
+                ),
+              ),
+          });
+        }
+
+        if (urlStr.includes('/api/content/foreign-travel-advice/pakistan')) {
+          return Promise.resolve({
+            ok: true,
+            text: () =>
+              Promise.resolve(
+                JSON.stringify(
+                  mockContentResponse('pakistan', recentTimestamp(10)),
+                ),
+              ),
+          });
+        }
+
+        if (urlStr.includes('uns.example.com/messages')) {
+          return Promise.resolve({ ok: true });
+        }
+
         return Promise.resolve({
-          ok: true,
-          text: () =>
-            Promise.resolve(
-              JSON.stringify(mockSearchResponse([UNKNOWN_CONTENT_ID, PAKISTAN_CONTENT_ID])),
-            ),
+          ok: false,
+          status: 404,
+          statusText: 'Not Found',
         });
-      }
-
-      if (urlStr.includes('/api/content/foreign-travel-advice/pakistan')) {
-        return Promise.resolve({
-          ok: true,
-          text: () =>
-            Promise.resolve(
-              JSON.stringify(mockContentResponse('pakistan', recentTimestamp(10))),
-            ),
-        });
-      }
-
-      if (urlStr.includes('uns.example.com/messages')) {
-        return Promise.resolve({ ok: true });
-      }
-
-      return Promise.resolve({ ok: false, status: 404, statusText: 'Not Found' });
-    });
+      });
 
     vi.stubGlobal('fetch', mockFetch);
 
@@ -211,10 +241,15 @@ describe('handler integration', () => {
         if (urlStr.includes('/api/search.json')) {
           return Promise.resolve({
             ok: true,
-            text: () => Promise.resolve(JSON.stringify({ results: [], total: 0 })),
+            text: () =>
+              Promise.resolve(JSON.stringify({ results: [], total: 0 })),
           });
         }
-        return Promise.resolve({ ok: false, status: 404, statusText: 'Not Found' });
+        return Promise.resolve({
+          ok: false,
+          status: 404,
+          statusText: 'Not Found',
+        });
       }),
     );
 
@@ -225,40 +260,50 @@ describe('handler integration', () => {
   });
 
   it('continues publishing other countries when one content fetch fails', async () => {
-    const mockFetch = vi.fn().mockImplementation((url: string | URL, options?: RequestInit) => {
-      const urlStr = url.toString();
-      fetchCalls.push({ url: urlStr, options });
+    const mockFetch = vi
+      .fn()
+      .mockImplementation((url: string | URL, options?: RequestInit) => {
+        const urlStr = url.toString();
+        fetchCalls.push({ url: urlStr, options });
 
-      if (urlStr.includes('/api/search.json')) {
+        if (urlStr.includes('/api/search.json')) {
+          return Promise.resolve({
+            ok: true,
+            text: () =>
+              Promise.resolve(
+                JSON.stringify(
+                  mockSearchResponse([PAKISTAN_CONTENT_ID, FRANCE_CONTENT_ID]),
+                ),
+              ),
+          });
+        }
+
+        if (urlStr.includes('/api/content/foreign-travel-advice/pakistan')) {
+          return Promise.resolve({ ok: false, status: 500, statusText: 'ISE' });
+        }
+
+        if (urlStr.includes('/api/content/foreign-travel-advice/france')) {
+          return Promise.resolve({
+            ok: true,
+            text: () =>
+              Promise.resolve(
+                JSON.stringify(
+                  mockContentResponse('france', recentTimestamp(5)),
+                ),
+              ),
+          });
+        }
+
+        if (urlStr.includes('uns.example.com/messages')) {
+          return Promise.resolve({ ok: true });
+        }
+
         return Promise.resolve({
-          ok: true,
-          text: () =>
-            Promise.resolve(
-              JSON.stringify(mockSearchResponse([PAKISTAN_CONTENT_ID, FRANCE_CONTENT_ID])),
-            ),
+          ok: false,
+          status: 404,
+          statusText: 'Not Found',
         });
-      }
-
-      if (urlStr.includes('/api/content/foreign-travel-advice/pakistan')) {
-        return Promise.resolve({ ok: false, status: 500, statusText: 'ISE' });
-      }
-
-      if (urlStr.includes('/api/content/foreign-travel-advice/france')) {
-        return Promise.resolve({
-          ok: true,
-          text: () =>
-            Promise.resolve(
-              JSON.stringify(mockContentResponse('france', recentTimestamp(5))),
-            ),
-        });
-      }
-
-      if (urlStr.includes('uns.example.com/messages')) {
-        return Promise.resolve({ ok: true });
-      }
-
-      return Promise.resolve({ ok: false, status: 404, statusText: 'Not Found' });
-    });
+      });
 
     vi.stubGlobal('fetch', mockFetch);
     vi.useFakeTimers();
@@ -287,10 +332,15 @@ describe('handler integration', () => {
         if (urlStr.includes('/api/search.json')) {
           return Promise.resolve({
             ok: true,
-            text: () => Promise.resolve(JSON.stringify({ results: [], total: 0 })),
+            text: () =>
+              Promise.resolve(JSON.stringify({ results: [], total: 0 })),
           });
         }
-        return Promise.resolve({ ok: false, status: 404, statusText: 'Not Found' });
+        return Promise.resolve({
+          ok: false,
+          status: 404,
+          statusText: 'Not Found',
+        });
       }),
     );
 
@@ -298,7 +348,9 @@ describe('handler integration', () => {
     await handler(createScheduledEvent('daily'));
     await handler(createScheduledEvent('weekly'));
 
-    const searchCalls = fetchCalls.filter((c) => c.url.includes('/api/search.json'));
+    const searchCalls = fetchCalls.filter((c) =>
+      c.url.includes('/api/search.json'),
+    );
     expect(searchCalls).toHaveLength(3);
 
     for (const call of searchCalls) {
@@ -307,8 +359,8 @@ describe('handler integration', () => {
   });
 
   it('throws on invalid schedule', async () => {
-    await expect(
-      handler(createScheduledEvent('monthly')),
-    ).rejects.toThrow('Invalid schedule: monthly');
+    await expect(handler(createScheduledEvent('monthly'))).rejects.toThrow(
+      'Invalid schedule: monthly',
+    );
   });
 });

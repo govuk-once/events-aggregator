@@ -19,7 +19,9 @@ const { values } = parseArgs({
 });
 
 if (!values.schedule || !isValidSchedule(values.schedule)) {
-  console.error('Usage: pnpm run simulate --schedule <hourly|daily|weekly> [--country <slug>]');
+  console.error(
+    'Usage: pnpm run simulate --schedule <hourly|daily|weekly> [--country <slug>]',
+  );
   process.exit(1);
 }
 
@@ -49,7 +51,9 @@ async function main() {
   if (values.country) {
     const timestamp = await getAnchorTimestamp(values.country);
     const anchor = new Date(timestamp);
-    windowStart = new Date(anchor.getTime() - WINDOW_MS[schedule]).toISOString();
+    windowStart = new Date(
+      anchor.getTime() - WINDOW_MS[schedule],
+    ).toISOString();
   }
 
   const event = {

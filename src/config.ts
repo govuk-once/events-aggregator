@@ -8,7 +8,10 @@ const WINDOW_MS: Record<Schedule, number> = {
   weekly: 7 * 24 * 60 * 60 * 1000,
 };
 
-export function getTimeWindow(schedule: Schedule, now: Date = new Date()): string {
+export function getTimeWindow(
+  schedule: Schedule,
+  now: Date = new Date(),
+): string {
   const from = new Date(now.getTime() - WINDOW_MS[schedule]);
   return from.toISOString();
 }

@@ -10,12 +10,24 @@ describe('messageBuilder', () => {
   ];
 
   it('returns null when no changes match the window', () => {
-    const result = buildMessage('Pakistan travel advice', 'pakistan', 'hourly', history, '2026-07-17T00:00:00.000Z');
+    const result = buildMessage(
+      'Pakistan travel advice',
+      'pakistan',
+      'hourly',
+      history,
+      '2026-07-17T00:00:00.000Z',
+    );
     expect(result).toBeNull();
   });
 
   describe('single change', () => {
-    const result = buildMessage('Pakistan travel advice', 'pakistan', 'hourly', history, '2026-07-16T14:00:00.000Z');
+    const result = buildMessage(
+      'Pakistan travel advice',
+      'pakistan',
+      'hourly',
+      history,
+      '2026-07-16T14:00:00.000Z',
+    );
 
     it('returns a message', () => {
       expect(result).not.toBeNull();
@@ -35,14 +47,22 @@ describe('messageBuilder', () => {
   });
 
   describe('multiple changes', () => {
-    const result = buildMessage('Pakistan travel advice', 'pakistan', 'daily', history, '2026-07-16T12:00:00.000Z');
+    const result = buildMessage(
+      'Pakistan travel advice',
+      'pakistan',
+      'daily',
+      history,
+      '2026-07-16T12:00:00.000Z',
+    );
 
     it('returns a message', () => {
       expect(result).not.toBeNull();
     });
 
     it('includes count in NotificationTitle', () => {
-      expect(result!.NotificationTitle).toBe('Pakistan travel advice: 2 updates');
+      expect(result!.NotificationTitle).toBe(
+        'Pakistan travel advice: 2 updates',
+      );
     });
 
     it('summarises in NotificationBody', () => {
@@ -56,23 +76,59 @@ describe('messageBuilder', () => {
 
   describe('dedupMarker (NotificationID)', () => {
     it('generates a stable hash from content', () => {
-      const result1 = buildMessage('Pakistan travel advice', 'pakistan', 'hourly', history, '2026-07-16T14:00:00.000Z');
-      const result2 = buildMessage('Pakistan travel advice', 'pakistan', 'hourly', history, '2026-07-16T14:00:00.000Z');
+      const result1 = buildMessage(
+        'Pakistan travel advice',
+        'pakistan',
+        'hourly',
+        history,
+        '2026-07-16T14:00:00.000Z',
+      );
+      const result2 = buildMessage(
+        'Pakistan travel advice',
+        'pakistan',
+        'hourly',
+        history,
+        '2026-07-16T14:00:00.000Z',
+      );
 
       expect(result1!.NotificationID).toBe(result2!.NotificationID);
       expect(result1!.NotificationID).toMatch(/^[a-f0-9]{64}$/);
     });
 
     it('differs by country', () => {
-      const result1 = buildMessage('Pakistan travel advice', 'pakistan', 'hourly', history, '2026-07-01T00:00:00.000Z');
-      const result2 = buildMessage('France travel advice', 'france', 'hourly', history, '2026-07-01T00:00:00.000Z');
+      const result1 = buildMessage(
+        'Pakistan travel advice',
+        'pakistan',
+        'hourly',
+        history,
+        '2026-07-01T00:00:00.000Z',
+      );
+      const result2 = buildMessage(
+        'France travel advice',
+        'france',
+        'hourly',
+        history,
+        '2026-07-01T00:00:00.000Z',
+      );
 
       expect(result1!.NotificationID).not.toBe(result2!.NotificationID);
     });
 
     it('differs by schedule', () => {
-      const result1 = buildMessage('Pakistan travel advice', 'pakistan', 'hourly', history, '2026-07-01T00:00:00.000Z');
-      const result2 = buildMessage('Pakistan travel advice', 'pakistan', 'daily', history, '2026-07-01T00:00:00.000Z');
+      const result1 = buildMessage(
+        'Pakistan travel advice',
+        'pakistan',
+        'hourly',
+        history,
+        '2026-07-01T00:00:00.000Z',
+      );
+      const result2 = buildMessage(
+        'Pakistan travel advice',
+        'pakistan',
+        'daily',
+        history,
+        '2026-07-01T00:00:00.000Z',
+      );
 
       expect(result1!.NotificationID).not.toBe(result2!.NotificationID);
     });
