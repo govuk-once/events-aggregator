@@ -1,0 +1,67 @@
+{
+  "name": "events-aggregator",
+  "description": "Polls GOV.UK travel advice for changes and publishes notifications to UNS",
+  "version": "0.1.0",
+  "bin": {
+    "events-aggregator": "cdk/events-aggregator.ts"
+  },
+  "engines": {
+    "node": "24.12.0",
+    "pnpm": "10.25.0"
+  },
+  "packageManager": "pnpm@10.25.0",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "simulate": "tsx scripts/simulate.ts",
+    "test": "vitest run",
+    "test:unit": "vitest run --coverage src --passWithNoTests",
+    "test:cdk": "vitest run --coverage cdk --passWithNoTests",
+    "test:watch": "vitest",
+    "cdk": "cdk",
+    "cdk:diff": "cdk diff",
+    "cdk:deploy": "cdk deploy --require-approval never",
+    "cdk:destroy": "cdk destroy",
+    "lint:check": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format:check": "prettier --check .",
+    "format:fix": "prettier --write .",
+    "types:check": "tsc --noEmit",
+    "deploy:test": "cdk deploy --context environment=test --all --require-approval never",
+    "deploy:dev": "cdk deploy --context environment=dev --all --require-approval never",
+    "deploy:stag": "cdk deploy --context environment=stag --all --require-approval never",
+    "deploy:prod": "cdk deploy --context environment=prod --all --require-approval never"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/aws-lambda": "^8.10.159",
+    "@types/node": "^24.10.1",
+    "@typescript-eslint/eslint-plugin": "^8.48.1",
+    "@typescript-eslint/parser": "^8.48.1",
+    "@vitest/coverage-v8": "4.0.15",
+    "aws-cdk": "2.1033.0",
+    "esbuild": "^0.27.1",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "globals": "^16.5.0",
+    "jiti": "^2.6.1",
+    "prettier": "^3.7.4",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.23.1",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.48.1",
+    "vitest": "^4.0.15"
+  },
+  "dependencies": {
+    "@aws-lambda-powertools/logger": "^2.33.1",
+    "@aws-lambda-powertools/metrics": "^2.33.1",
+    "@aws-lambda-powertools/tracer": "^2.33.1",
+    "@aws-sdk/credential-providers": "^3.1063.0",
+    "@smithy/hash-node": "^4.3.6",
+    "@smithy/protocol-http": "^5.4.6",
+    "@smithy/signature-v4": "^5.4.6",
+    "aws-cdk-lib": "2.215.0",
+    "constructs": "^10.4.3"
+  }
+}

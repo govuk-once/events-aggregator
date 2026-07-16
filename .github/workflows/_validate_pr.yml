@@ -1,0 +1,23 @@
+on:
+  workflow_call:
+
+jobs:
+  validate-pr-title:
+    name: Validate PR Title
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Skip Dependabot PRs
+        if: github.actor == 'dependabot[bot]'
+        run: echo "Skipping Jira title check for Dependabot"
+
+      - name: Validate PR title contains Jira ticket
+        if: github.actor != 'dependabot[bot]'
+        run: |
+          TITLE="${{ github.event.pull_request.title }}"
+          echo "Checking PR title"
+
+          if [[ ! $TITLE =~ ^[A-Z]{3,4}-[1-9][0-9]{0,4}:\ .+ ]]; then
+            echo "::error ::PR title must follow the format 'PLAT-123: Description'"
+            exit 1
+          fi
