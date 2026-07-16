@@ -4,6 +4,12 @@ import { handler } from '../src/handler.js';
 import type { ScheduledEvent } from 'aws-lambda';
 import type { ContentApiResponse } from '../src/govuk/types.js';
 
+const WINDOW_MS: Record<Schedule, number> = {
+  hourly: 60 * 60 * 1000,
+  daily: 24 * 60 * 60 * 1000,
+  weekly: 7 * 24 * 60 * 60 * 1000,
+};
+
 const { values } = parseArgs({
   strict: false,
   options: {
@@ -12,13 +18,12 @@ const { values } = parseArgs({
   },
 });
 
-const ALL_SCHEDULES: Schedule[] = ['hourly', 'daily', 'weekly'];
+if (!values.schedule || !isValidSchedule(values.schedule)) {
+  console.error('Usage: pnpm run simulate --schedule <hourly|daily|weekly> [--country <slug>]');
+  process.exit(1);
+}
 
-const WINDOW_MS: Record<Schedule, number> = {
-  hourly: 60 * 60 * 1000,
-  daily: 24 * 60 * 60 * 1000,
-  weekly: 7 * 24 * 60 * 60 * 1000,
-};
+const schedule: Schedule = values.schedule;
 
 process.env.UNS_API_URL = process.env.UNS_API_URL || 'https://uns.example.com';
 process.env.UNS_SIGV4_ENABLED = 'false';
@@ -39,38 +44,22 @@ async function getAnchorTimestamp(slug: string): Promise<string> {
 }
 
 async function main() {
-  const schedules: Schedule[] = values.schedule && isValidSchedule(values.schedule)
-    ? [values.schedule]
-    : ALL_SCHEDULES;
-
-  let anchor: Date | undefined;
+  let windowStart: string | undefined;
 
   if (values.country) {
-    console.log(`Anchoring to ${values.country}'s last change...`);
     const timestamp = await getAnchorTimestamp(values.country);
-    anchor = new Date(timestamp);
-    console.log(`Anchor: ${timestamp}\n`);
+    const anchor = new Date(timestamp);
+    windowStart = new Date(anchor.getTime() - WINDOW_MS[schedule]).toISOString();
   }
 
-  for (const schedule of schedules) {
-    console.log(`${'═'.repeat(60)}`);
-    console.log(`Invoking handler: schedule=${schedule}, dryRun=true${values.country ? `, country=${values.country}` : ''}`);
-    console.log('═'.repeat(60) + '\n');
+  const event = {
+    schedule,
+    dryRun: true,
+    country: values.country,
+    windowStart,
+  } as unknown as ScheduledEvent;
 
-    const windowStart = anchor
-      ? new Date(anchor.getTime() - WINDOW_MS[schedule]).toISOString()
-      : undefined;
-
-    const event = {
-      schedule,
-      dryRun: true,
-      country: values.country,
-      windowStart,
-    } as unknown as ScheduledEvent;
-
-    await handler(event);
-    console.log('');
-  }
+  await handler(event);
 }
 
 main().catch((err) => {
