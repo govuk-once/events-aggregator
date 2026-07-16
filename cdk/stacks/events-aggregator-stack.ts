@@ -3,6 +3,7 @@ import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as kms from 'aws-cdk-lib/aws-kms';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as path from 'path';
 import { Construct } from 'constructs';
@@ -60,6 +61,15 @@ export class EventsAggregatorStack extends cdk.Stack {
       }),
     );
 
+    const logGroup = new logs.LogGroup(this, 'PollerLogGroup', {
+      logGroupName: `/aws/lambda/${getResourceNamePrefix()}-poller`,
+      encryptionKey: logKey,
+      retention: logs.RetentionDays.ONE_MONTH,
+      removalPolicy: isEphemeralEnvironment()
+        ? cdk.RemovalPolicy.DESTROY
+        : cdk.RemovalPolicy.RETAIN,
+    });
+
     const pollerLambda = new cdk.aws_lambda_nodejs.NodejsFunction(
       this,
       'EventsAggregatorFunction',
@@ -72,6 +82,7 @@ export class EventsAggregatorStack extends cdk.Stack {
         timeout: cdk.Duration.seconds(60),
         reservedConcurrentExecutions: 3,
         environmentEncryption: logKey,
+        logGroup,
         environment: {
           SERVICE_NAME: props.serviceName,
           ENVIRONMENT: props.environment,
