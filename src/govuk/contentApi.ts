@@ -3,6 +3,7 @@ import type { ContentApiResponse } from './types.js';
 const CONTENT_BASE = 'https://www.gov.uk/api/content';
 const MAX_RETRIES = 3;
 const INITIAL_BACKOFF_MS = 500;
+const MAX_RESPONSE_BYTES = 5 * 1024 * 1024;
 
 export async function fetchCountryContent(
   slug: string,
@@ -15,7 +16,13 @@ export async function fetchCountryContent(
     });
 
     if (response.ok) {
-      return (await response.json()) as ContentApiResponse;
+      const text = await response.text();
+      if (text.length > MAX_RESPONSE_BYTES) {
+        throw new Error(
+          `Content API response too large for ${slug}: ${text.length} bytes`,
+        );
+      }
+      return JSON.parse(text) as ContentApiResponse;
     }
 
     if (attempt === MAX_RETRIES || response.status < 500) {

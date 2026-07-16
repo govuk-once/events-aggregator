@@ -28,7 +28,7 @@ describe('contentApi', () => {
         'fetch',
         vi.fn().mockResolvedValue({
           ok: true,
-          json: () => Promise.resolve(mockContent),
+          text: () => Promise.resolve(JSON.stringify(mockContent)),
         }),
       );
 
@@ -62,13 +62,13 @@ describe('contentApi', () => {
         .mockResolvedValueOnce({ ok: false, status: 500, statusText: 'ISE' })
         .mockResolvedValueOnce({
           ok: true,
-          json: () =>
-            Promise.resolve({
+          text: () =>
+            Promise.resolve(JSON.stringify({
               content_id: 'abc',
               title: 'Test',
               base_path: '/test',
               details: {},
-            }),
+            })),
         });
 
       vi.stubGlobal('fetch', mockFetch);
@@ -88,13 +88,13 @@ describe('contentApi', () => {
         .fn()
         .mockResolvedValueOnce({
           ok: true,
-          json: () =>
-            Promise.resolve({
+          text: () =>
+            Promise.resolve(JSON.stringify({
               content_id: '1',
               title: 'France',
               base_path: '/test',
               details: {},
-            }),
+            })),
         })
         .mockResolvedValueOnce({
           ok: false,

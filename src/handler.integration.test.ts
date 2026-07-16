@@ -89,9 +89,9 @@ describe('handler integration', () => {
       if (urlStr.includes('/api/search.json')) {
         return Promise.resolve({
           ok: true,
-          json: () =>
+          text: () =>
             Promise.resolve(
-              mockSearchResponse([PAKISTAN_CONTENT_ID, FRANCE_CONTENT_ID]),
+              JSON.stringify(mockSearchResponse([PAKISTAN_CONTENT_ID, FRANCE_CONTENT_ID])),
             ),
         });
       }
@@ -99,9 +99,9 @@ describe('handler integration', () => {
       if (urlStr.includes('/api/content/foreign-travel-advice/pakistan')) {
         return Promise.resolve({
           ok: true,
-          json: () =>
+          text: () =>
             Promise.resolve(
-              mockContentResponse('pakistan', recentTimestamp(10)),
+              JSON.stringify(mockContentResponse('pakistan', recentTimestamp(10))),
             ),
         });
       }
@@ -109,9 +109,9 @@ describe('handler integration', () => {
       if (urlStr.includes('/api/content/foreign-travel-advice/france')) {
         return Promise.resolve({
           ok: true,
-          json: () =>
+          text: () =>
             Promise.resolve(
-              mockContentResponse('france', recentTimestamp(5)),
+              JSON.stringify(mockContentResponse('france', recentTimestamp(5))),
             ),
         });
       }
@@ -160,9 +160,9 @@ describe('handler integration', () => {
       if (urlStr.includes('/api/search.json')) {
         return Promise.resolve({
           ok: true,
-          json: () =>
+          text: () =>
             Promise.resolve(
-              mockSearchResponse([UNKNOWN_CONTENT_ID, PAKISTAN_CONTENT_ID]),
+              JSON.stringify(mockSearchResponse([UNKNOWN_CONTENT_ID, PAKISTAN_CONTENT_ID])),
             ),
         });
       }
@@ -170,9 +170,9 @@ describe('handler integration', () => {
       if (urlStr.includes('/api/content/foreign-travel-advice/pakistan')) {
         return Promise.resolve({
           ok: true,
-          json: () =>
+          text: () =>
             Promise.resolve(
-              mockContentResponse('pakistan', recentTimestamp(10)),
+              JSON.stringify(mockContentResponse('pakistan', recentTimestamp(10))),
             ),
         });
       }
@@ -209,7 +209,7 @@ describe('handler integration', () => {
         if (urlStr.includes('/api/search.json')) {
           return Promise.resolve({
             ok: true,
-            json: () => Promise.resolve({ results: [], total: 0 }),
+            text: () => Promise.resolve(JSON.stringify({ results: [], total: 0 })),
           });
         }
         return Promise.resolve({ ok: false, status: 404, statusText: 'Not Found' });
@@ -230,9 +230,9 @@ describe('handler integration', () => {
       if (urlStr.includes('/api/search.json')) {
         return Promise.resolve({
           ok: true,
-          json: () =>
+          text: () =>
             Promise.resolve(
-              mockSearchResponse([PAKISTAN_CONTENT_ID, FRANCE_CONTENT_ID]),
+              JSON.stringify(mockSearchResponse([PAKISTAN_CONTENT_ID, FRANCE_CONTENT_ID])),
             ),
         });
       }
@@ -244,9 +244,9 @@ describe('handler integration', () => {
       if (urlStr.includes('/api/content/foreign-travel-advice/france')) {
         return Promise.resolve({
           ok: true,
-          json: () =>
+          text: () =>
             Promise.resolve(
-              mockContentResponse('france', recentTimestamp(5)),
+              JSON.stringify(mockContentResponse('france', recentTimestamp(5))),
             ),
         });
       }
@@ -285,7 +285,7 @@ describe('handler integration', () => {
         if (urlStr.includes('/api/search.json')) {
           return Promise.resolve({
             ok: true,
-            json: () => Promise.resolve({ results: [], total: 0 }),
+            text: () => Promise.resolve(JSON.stringify({ results: [], total: 0 })),
           });
         }
         return Promise.resolve({ ok: false, status: 404, statusText: 'Not Found' });

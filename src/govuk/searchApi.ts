@@ -1,6 +1,7 @@
 import type { SearchResponse } from './types.js';
 
 const SEARCH_BASE = 'https://www.gov.uk/api/search.json';
+const MAX_RESPONSE_BYTES = 5 * 1024 * 1024;
 
 function buildSearchUrl(fromTimestamp: string): string {
   const params = new URLSearchParams();
@@ -29,5 +30,11 @@ export async function fetchChangedTravelAdvice(
     );
   }
 
-  return (await response.json()) as SearchResponse;
+  const text = await response.text();
+  if (text.length > MAX_RESPONSE_BYTES) {
+    throw new Error(
+      `Search API response too large: ${text.length} bytes (max ${MAX_RESPONSE_BYTES})`,
+    );
+  }
+  return JSON.parse(text) as SearchResponse;
 }

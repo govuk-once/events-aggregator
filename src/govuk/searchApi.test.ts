@@ -10,7 +10,7 @@ describe('fetchChangedTravelAdvice', () => {
     const mockResponse = { results: [], total: 0 };
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve(mockResponse),
+      text: () => Promise.resolve(JSON.stringify(mockResponse)),
     });
     vi.stubGlobal('fetch', mockFetch);
 
@@ -33,7 +33,7 @@ describe('fetchChangedTravelAdvice', () => {
     };
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve(mockResponse),
+      text: () => Promise.resolve(JSON.stringify(mockResponse)),
     }));
 
     const result = await fetchChangedTravelAdvice('2026-07-16T14:00:00.000Z');
