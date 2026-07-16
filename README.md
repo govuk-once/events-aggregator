@@ -4,6 +4,42 @@ Stateless Lambda service that polls GOV.UK travel advice for changes and publish
 
 ## How it works
 
+```mermaid
+flowchart LR
+    subgraph Schedules
+        H[Hourly]
+        D[Daily]
+        W[Weekly]
+    end
+
+    subgraph Lambda["events-aggregator Lambda"]
+        direction TB
+        Search[Search API\nfilter by time window]
+        Resolve[Resolve country\nmapping lookup]
+        Content[Content API\nfetch change_history]
+        Build[Build message\ntitle + body + dedup]
+    end
+
+    subgraph GOV.UK
+        SA["/api/search.json"]
+        CA["/api/content/\nforeign-travel-advice/{slug}"]
+    end
+
+    subgraph Delivery
+        UNS[UNS]
+        Users[Users]
+    end
+
+    H & D & W -->|schedule input| Search
+    Search -->|query| SA
+    SA -.->|changed pages| Resolve
+    Resolve -->|supported slugs| Content
+    Content -->|fetch| CA
+    CA -.->|change_history| Build
+    Build -->|topic + message| UNS
+    UNS -->|push / notify| Users
+```
+
 Three EventBridge schedules (hourly, daily, weekly) trigger the same Lambda with a different `schedule` input. Each run:
 
 1. Queries the GOV.UK Search API for travel advice pages updated within the time window
