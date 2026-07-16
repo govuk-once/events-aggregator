@@ -20,8 +20,9 @@ export const handler = async (event: ScheduledEvent): Promise<void> => {
   const input = event as unknown as HandlerInput;
 
   if (!isValidSchedule(input.schedule)) {
-    logger.error('Invalid schedule input', { schedule: input.schedule });
-    throw new Error(`Invalid schedule: ${input.schedule}`);
+    const sanitised = String(input.schedule ?? '').slice(0, 50).replace(/[\n\r]/g, '');
+    logger.error('Invalid schedule input', { schedule: sanitised });
+    throw new Error(`Invalid schedule: ${sanitised}`);
   }
 
   const schedule = input.schedule;
