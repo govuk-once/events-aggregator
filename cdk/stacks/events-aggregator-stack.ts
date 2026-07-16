@@ -75,7 +75,7 @@ export class EventsAggregatorStack extends cdk.Stack {
           ENVIRONMENT: props.environment,
           UNS_API_URL: process.env.UNS_API_URL || '',
           UNS_API_REGION: process.env.UNS_API_REGION || 'eu-west-2',
-          UNS_SIGV4_ENABLED: process.env.UNS_SIGV4_ENABLED || 'false',
+          UNS_SIGV4_ENABLED: isEphemeralEnvironment() ? 'false' : 'true',
         },
       },
     );
