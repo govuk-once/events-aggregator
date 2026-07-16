@@ -25,10 +25,13 @@ export const handler = async (event: ScheduledEvent): Promise<void> => {
   }
 
   const schedule = input.schedule;
-  const dryRun = input.dryRun ?? false;
-  const country = input.country;
+  const isEphemeral = !['prod', 'stag'].includes(process.env.ENVIRONMENT ?? '');
+  const dryRun = isEphemeral ? (input.dryRun ?? false) : false;
+  const country = isEphemeral ? input.country : undefined;
+  const windowStart = isEphemeral
+    ? (input.windowStart ?? getTimeWindow(schedule))
+    : getTimeWindow(schedule);
   const unsConfig = dryRun ? undefined : getUnsConfig();
-  const windowStart = input.windowStart ?? getTimeWindow(schedule);
   logger.info('Starting poll', { schedule, windowStart, dryRun, country });
 
   const searchResponse = await fetchChangedTravelAdvice(windowStart);
