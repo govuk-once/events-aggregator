@@ -1,4 +1,5 @@
 import { Logger } from '@aws-lambda-powertools/logger';
+import { Tracer } from '@aws-lambda-powertools/tracer';
 import type { ScheduledEvent } from 'aws-lambda';
 import { getTimeWindow, getUnsConfig, isValidSchedule } from './config.js';
 import { resolveCountry } from './countries/mapping.js';
@@ -8,6 +9,7 @@ import { buildMessage } from './notifications/messageBuilder.js';
 import { publishToUns } from './notifications/unsClient.js';
 
 const logger = new Logger({ serviceName: 'events-aggregator' });
+const tracer = new Tracer({ serviceName: 'events-aggregator' });
 
 interface HandlerInput {
   schedule?: string;
@@ -17,6 +19,11 @@ interface HandlerInput {
 }
 
 export const handler = async (event: ScheduledEvent): Promise<void> => {
+  const segment = tracer.getSegment()!;
+  const subsegment = segment.addNewSubsegment('## handler');
+  tracer.setSegment(subsegment);
+
+  try {
   const input = event as unknown as HandlerInput;
 
   if (!isValidSchedule(input.schedule)) {
@@ -129,4 +136,13 @@ export const handler = async (event: ScheduledEvent): Promise<void> => {
   }
 
   logger.info('Poll complete', { schedule, published, dryRun: !!dryRun });
+  tracer.putAnnotation('schedule', schedule);
+  tracer.putAnnotation('published', published);
+  } catch (error) {
+    subsegment.addError(error as Error);
+    throw error;
+  } finally {
+    subsegment.close();
+    tracer.setSegment(segment);
+  }
 };
