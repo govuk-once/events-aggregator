@@ -8,7 +8,20 @@ import { fetchChangedTravelAdvice } from './govuk/searchApi.js';
 import { buildMessage } from './notifications/messageBuilder.js';
 import { publishToUns } from './notifications/unsClient.js';
 
-const logger = new Logger({ serviceName: 'events-aggregator' });
+const REDACTED_FIELDS = new Set([
+  'Authorization',
+  'x-api-key',
+  'x-amz-security-token',
+  'sessionToken',
+  'accessKeyId',
+  'secretAccessKey',
+]);
+
+const logger = new Logger({
+  serviceName: 'events-aggregator',
+  jsonReplacerFn: (key, value) =>
+    REDACTED_FIELDS.has(key) ? '******' : value,
+});
 const tracer = new Tracer({ serviceName: 'events-aggregator' });
 
 interface HandlerInput {
