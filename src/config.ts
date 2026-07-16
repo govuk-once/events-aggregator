@@ -1,3 +1,5 @@
+import { requireEnvVars } from './utils/requireEnvVars.js';
+
 export type Schedule = 'hourly' | 'daily' | 'weekly';
 
 const WINDOW_MS: Record<Schedule, number> = {
@@ -22,14 +24,14 @@ export interface UnsClientConfig {
 }
 
 export function getUnsConfig(): UnsClientConfig {
-  const apiUrl = process.env.UNS_API_URL;
-  if (!apiUrl) {
-    throw new Error('UNS_API_URL environment variable is not set');
-  }
+  const { UNS_API_URL, UNS_API_REGION } = requireEnvVars(
+    'UNS_API_URL',
+    'UNS_API_REGION',
+  );
 
   return {
-    apiUrl,
-    region: process.env.UNS_API_REGION || process.env.AWS_REGION || 'eu-west-2',
+    apiUrl: UNS_API_URL,
+    region: UNS_API_REGION,
     sigv4Enabled: process.env.UNS_SIGV4_ENABLED === 'true',
   };
 }

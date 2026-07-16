@@ -72,12 +72,14 @@ describe('handler integration', () => {
   beforeEach(() => {
     fetchCalls = [];
     process.env.UNS_API_URL = 'https://uns.example.com';
+    process.env.UNS_API_REGION = 'eu-west-2';
     process.env.UNS_SIGV4_ENABLED = 'false';
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
     delete process.env.UNS_API_URL;
+    delete process.env.UNS_API_REGION;
     delete process.env.UNS_SIGV4_ENABLED;
   });
 
