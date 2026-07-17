@@ -7,7 +7,7 @@ Stateless Lambda service that polls GOV.UK travel advice for changes and publish
 ```mermaid
 flowchart LR
     subgraph Schedules
-        A[ASAP]
+        AS[ASAP]
         D[Daily]
         W[Weekly]
     end
@@ -183,7 +183,7 @@ flowchart LR
     end
 
     subgraph Schedules
-        A[ASAP]
+        AS[ASAP]
         D[Daily]
         W[Weekly]
     end
