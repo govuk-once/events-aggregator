@@ -29,8 +29,7 @@ flowchart LR
     end
 
     H & D & W -->|schedule| GCW
-    GCW -->|query changed pages| SA
-    GCW -->|fetch change_history| CA
+    GCW -->|"query: changes since windowStart"| SA & CA
     GCW -.->|"CountryChanges[]"| Build
     Build -->|NotificationMessage| Pub
     Pub -->|topic + message| UNS
