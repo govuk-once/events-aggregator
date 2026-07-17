@@ -56,11 +56,11 @@ If a user subscribes to these countries, how many notifications would they recei
 
 Each country sends its **own** notification per schedule. Subscribing to all 226 means up to 226 separate notifications landing in your inbox per window — not one combined digest.
 
-| Schedule | Total notifications/year | On a typical day | On the worst day | Days (or weeks) you'd hear from us |
-|----------|------------------------:|-----------------:|-----------------:|------------------------------------:|
-| ASAP | 1,791 | 5 notifications | 211 notifications | 306 of 365 days (83%) |
-| Daily | 1,717 | 3 notifications | 207 notifications | 306 of 365 days (83%) |
-| Weekly | 1,442 | — | — | 52 of 52 weeks (100%) |
+| Schedule | Total notifications/year | On a typical week | On the worst week | Weeks you'd hear from us |
+|----------|------------------------:|------------------:|------------------:|-------------------------:|
+| ASAP | 1,791 | 34 notifications | 144 notifications | 52 of 52 weeks (100%) |
+| Daily | 1,717 | 26 notifications | 144 notifications | 52 of 52 weeks (100%) |
+| Weekly | 1,442 | 22 notifications | 210 notifications | 52 of 52 weeks (100%) |
 
 ### Breaking that down:
 
