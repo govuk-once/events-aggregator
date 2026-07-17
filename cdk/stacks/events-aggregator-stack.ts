@@ -95,9 +95,9 @@ export class EventsAggregatorStack extends cdk.Stack {
       input: string;
     }[] = [
       {
-        name: 'Hourly',
+        name: 'Asap',
         schedule: events.Schedule.rate(cdk.Duration.hours(1)),
-        input: JSON.stringify({ schedule: 'hourly' }),
+        input: JSON.stringify({ schedule: 'asap' }),
       },
       {
         name: 'Daily',

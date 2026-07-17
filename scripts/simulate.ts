@@ -5,7 +5,7 @@ import type { ScheduledEvent } from 'aws-lambda';
 import type { ContentApiResponse } from '../src/govuk/types.js';
 
 const WINDOW_MS: Record<Schedule, number> = {
-  hourly: 60 * 60 * 1000,
+  asap: 60 * 60 * 1000,
   daily: 24 * 60 * 60 * 1000,
   weekly: 7 * 24 * 60 * 60 * 1000,
 };
@@ -20,7 +20,7 @@ const { values } = parseArgs({
 
 if (!values.schedule || !isValidSchedule(values.schedule)) {
   console.error(
-    'Usage: pnpm run simulate --schedule <hourly|daily|weekly> [--country <slug>]',
+    'Usage: pnpm run simulate --schedule <asap|daily|weekly> [--country <slug>]',
   );
   process.exit(1);
 }

@@ -5,8 +5,8 @@ describe('config', () => {
   describe('getTimeWindow', () => {
     const now = new Date('2026-07-16T15:00:00.000Z');
 
-    it('returns 1 hour ago for hourly schedule', () => {
-      const result = getTimeWindow('hourly', now);
+    it('returns 1 hour ago for asap schedule', () => {
+      const result = getTimeWindow('asap', now);
       expect(result).toBe('2026-07-16T14:00:00.000Z');
     });
 
@@ -23,7 +23,7 @@ describe('config', () => {
 
   describe('isValidSchedule', () => {
     it('accepts valid schedules', () => {
-      expect(isValidSchedule('hourly')).toBe(true);
+      expect(isValidSchedule('asap')).toBe(true);
       expect(isValidSchedule('daily')).toBe(true);
       expect(isValidSchedule('weekly')).toBe(true);
     });

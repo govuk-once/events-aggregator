@@ -29,7 +29,7 @@ interface HandlerInput {
 }
 
 interface ResolvedInput {
-  schedule: 'hourly' | 'daily' | 'weekly';
+  schedule: 'asap' | 'daily' | 'weekly';
   dryRun: boolean;
   country: string | undefined;
   windowStart: string;

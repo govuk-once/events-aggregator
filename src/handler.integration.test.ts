@@ -139,7 +139,7 @@ describe('handler integration', () => {
 
     vi.stubGlobal('fetch', mockFetch);
 
-    await handler(createScheduledEvent('hourly'));
+    await handler(createScheduledEvent('asap'));
 
     const searchCall = fetchCalls.find((c) =>
       c.url.includes('/api/search.json'),
@@ -161,7 +161,7 @@ describe('handler integration', () => {
     expect(unsCalls).toHaveLength(2);
 
     const pakistanPublish = JSON.parse(unsCalls[0].options?.body as string);
-    expect(pakistanPublish.topic).toBe('travel-advice/pakistan/hourly');
+    expect(pakistanPublish.topic).toBe('travel-advice/pakistan/asap');
     expect(pakistanPublish.NotificationTitle).toBe(
       'Pakistan travel advice updated',
     );
@@ -171,7 +171,7 @@ describe('handler integration', () => {
     expect(pakistanPublish.NotificationID).toMatch(/^[a-f0-9]{64}$/);
 
     const francePublish = JSON.parse(unsCalls[1].options?.body as string);
-    expect(francePublish.topic).toBe('travel-advice/france/hourly');
+    expect(francePublish.topic).toBe('travel-advice/france/asap');
   });
 
   it('skips unknown countries and logs warning', async () => {
@@ -218,7 +218,7 @@ describe('handler integration', () => {
 
     vi.stubGlobal('fetch', mockFetch);
 
-    await handler(createScheduledEvent('hourly'));
+    await handler(createScheduledEvent('asap'));
 
     const contentCalls = fetchCalls.filter((c) =>
       c.url.includes('/api/content/foreign-travel-advice/'),
@@ -344,7 +344,7 @@ describe('handler integration', () => {
       }),
     );
 
-    await handler(createScheduledEvent('hourly'));
+    await handler(createScheduledEvent('asap'));
     await handler(createScheduledEvent('daily'));
     await handler(createScheduledEvent('weekly'));
 

@@ -1,6 +1,6 @@
 ## Problem Statement
 
-Users need timely notifications when GOV.UK travel advice changes for countries they care about. Currently there is no mechanism to detect changes and push them to subscribers at their preferred frequency (hourly, daily, or weekly digests).
+Users need timely notifications when GOV.UK travel advice changes for countries they care about. Currently there is no mechanism to detect changes and push them to subscribers at their preferred frequency (asap, daily, or weekly digests).
 
 ## Solution
 
@@ -9,7 +9,7 @@ A stateless Lambda-based service that polls the GOV.UK Search and Content APIs o
 ## User Stories
 
 1. As a subscriber, I want to receive a notification when travel advice changes for a country I follow, so that I'm aware of new risks or requirements.
-2. As a subscriber, I want to choose whether I receive hourly, daily, or weekly digests per country, so that I control notification volume.
+2. As a subscriber, I want to choose whether I receive asap, daily, or weekly digests per country, so that I control notification volume.
 3. As a subscriber, I want the notification to contain the change description (not just "something changed"), so that I can decide whether to read the full page.
 4. As an operator, I want the service to be stateless and serverless, so that there's minimal infrastructure to manage.
 5. As an operator, I want structured log output when a Content API call fails after retries, so that I can identify persistent issues.
@@ -21,7 +21,7 @@ A stateless Lambda-based service that polls the GOV.UK Search and Content APIs o
 
 ## Implementation Decisions
 
-- **Runtime**: Single AWS Lambda function triggered by three EventBridge scheduled rules (hourly, daily, weekly). Each rule passes an input constant: `{"schedule": "hourly"|"daily"|"weekly"}`.
+- **Runtime**: Single AWS Lambda function triggered by three EventBridge scheduled rules (asap, daily, weekly). Each rule passes an input constant: `{"schedule": "asap"|"daily"|"weekly"}`.
 - **Time window derivation**: The schedule input maps to a lookback duration (1 hour, 1 day, 1 week). The `from` timestamp is calculated as `now - duration`. Missed runs are accepted as a known gap in v1 — downstream schedules act as a safety net.
 - **Step 1 — Search API**: `GET /api/search.json?filter_content_store_document_type=travel_advice&filter_public_timestamp=from:{window}&order=-public_timestamp&count=300&fields[]=link&fields[]=title&fields[]=public_timestamp`. Returns all travel advice pages changed in the window (max ~226).
 - **Step 2 — Mapping lookup**: Each result's content_id is checked against an in-code mapping table. Known + supported countries proceed. Unknown content_ids are logged as structured events and skipped.

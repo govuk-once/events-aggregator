@@ -12,7 +12,7 @@ describe('messageBuilder', () => {
     const result = buildMessage(
       'Pakistan travel advice',
       'pakistan',
-      'hourly',
+      'asap',
       history,
       '2026-07-17T00:00:00.000Z',
     );
@@ -23,7 +23,7 @@ describe('messageBuilder', () => {
     const result = buildMessage(
       'Pakistan travel advice',
       'pakistan',
-      'hourly',
+      'asap',
       history,
       '2026-07-16T14:00:00.000Z',
     );
@@ -78,14 +78,14 @@ describe('messageBuilder', () => {
       const result1 = buildMessage(
         'Pakistan travel advice',
         'pakistan',
-        'hourly',
+        'asap',
         history,
         '2026-07-16T14:00:00.000Z',
       );
       const result2 = buildMessage(
         'Pakistan travel advice',
         'pakistan',
-        'hourly',
+        'asap',
         history,
         '2026-07-16T14:00:00.000Z',
       );
@@ -98,14 +98,14 @@ describe('messageBuilder', () => {
       const result1 = buildMessage(
         'Pakistan travel advice',
         'pakistan',
-        'hourly',
+        'asap',
         history,
         '2026-07-01T00:00:00.000Z',
       );
       const result2 = buildMessage(
         'France travel advice',
         'france',
-        'hourly',
+        'asap',
         history,
         '2026-07-01T00:00:00.000Z',
       );
@@ -117,7 +117,7 @@ describe('messageBuilder', () => {
       const result1 = buildMessage(
         'Pakistan travel advice',
         'pakistan',
-        'hourly',
+        'asap',
         history,
         '2026-07-01T00:00:00.000Z',
       );

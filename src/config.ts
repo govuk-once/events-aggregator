@@ -1,9 +1,9 @@
 import { requireEnvVars } from './utils/requireEnvVars.js';
 
-export type Schedule = 'hourly' | 'daily' | 'weekly';
+export type Schedule = 'asap' | 'daily' | 'weekly';
 
 const WINDOW_MS: Record<Schedule, number> = {
-  hourly: 60 * 60 * 1000,
+  asap: 60 * 60 * 1000,
   daily: 24 * 60 * 60 * 1000,
   weekly: 7 * 24 * 60 * 60 * 1000,
 };
@@ -17,7 +17,7 @@ export function getTimeWindow(
 }
 
 export function isValidSchedule(value: unknown): value is Schedule {
-  return value === 'hourly' || value === 'daily' || value === 'weekly';
+  return value === 'asap' || value === 'daily' || value === 'weekly';
 }
 
 export interface UnsClientConfig {

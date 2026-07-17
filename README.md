@@ -7,7 +7,7 @@ Stateless Lambda service that polls GOV.UK travel advice for changes and publish
 ```mermaid
 flowchart LR
     subgraph Schedules
-        H[Hourly]
+        A[ASAP]
         D[Daily]
         W[Weekly]
     end
@@ -27,7 +27,7 @@ flowchart LR
         Users[Users]
     end
 
-    H & D & W -->|schedule| GCW
+    A H & D & W D H & D & W W -->|schedule| GCW
     GCW -->|"query: changes since windowStart"| GOVUK
     GCW -.->|"CountryChanges[]"| Build
     Build -->|NotificationMessage| Pub
@@ -35,7 +35,7 @@ flowchart LR
     UNS -->|notify| Users
 ```
 
-Three EventBridge schedules (hourly, daily, weekly) trigger the same Lambda with a different `schedule` input. Each run:
+Three EventBridge schedules (asap, daily, weekly) trigger the same Lambda with a different `schedule` input. Each run:
 
 1. Calls `getChangesForWindow(windowStart)` — the **ChangesAdapter** seam that fetches country changes for the time window
 2. Today's adapter queries the GOV.UK Search API then fetches change history from the Content API (rate-limited to 10 req/s)
@@ -65,14 +65,14 @@ Run the handler against the real GOV.UK APIs in dry-run mode (no messages sent t
 pnpm run --silent simulate --schedule weekly | jq .
 
 # Anchor to a specific country's last change (guarantees a hit)
-pnpm run --silent simulate --schedule hourly --country pakistan | jq .
+pnpm run --silent simulate --schedule asap --country pakistan | jq .
 
 # Filter to just the notification messages
 pnpm run --silent simulate --schedule weekly --country mexico \
   | jq 'select(.message == "DRY RUN — would publish") | {topic, NotificationTitle, NotificationBody}'
 ```
 
-`--schedule` is required (`hourly`, `daily`, or `weekly`). Output is JSON lines (one per log entry), pipeable through `jq`.
+`--schedule` is required (`asap`, `daily`, or `weekly`). Output is JSON lines (one per log entry), pipeable through `jq`.
 
 `--country` is optional — filters to a single country slug and anchors the time window to that country's last change, so you always get a hit regardless of schedule.
 
@@ -82,7 +82,7 @@ The Lambda accepts a JSON event from EventBridge:
 
 ```json
 {
-  "schedule": "hourly",
+  "schedule": "asap",
   "dryRun": false,
   "country": null,
   "windowStart": null
@@ -91,12 +91,12 @@ The Lambda accepts a JSON event from EventBridge:
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `schedule` | Yes | `hourly`, `daily`, or `weekly` |
+| `schedule` | Yes | `asap`, `daily`, or `weekly` |
 | `dryRun` | No | Log messages instead of publishing to UNS |
 | `country` | No | Only process this country slug |
 | `windowStart` | No | Override the computed time window start (ISO 8601) |
 
-In production, EventBridge rules pass only `{"schedule": "hourly"}`. The other fields are for local testing and debugging.
+In production, EventBridge rules pass only `{"schedule": "asap"}`. The other fields are for local testing and debugging.
 
 ## Notification message format
 
@@ -106,7 +106,7 @@ Messages are published to a UNS topic per country and frequency:
 travel-advice/{country-slug}/{frequency}
 ```
 
-For example: `travel-advice/pakistan/weekly`, `travel-advice/mexico/hourly`
+For example: `travel-advice/pakistan/weekly`, `travel-advice/mexico/asap`
 
 Each message follows the UNS notification contract:
 
@@ -124,7 +124,7 @@ Each message follows the UNS notification contract:
 CDK stack (`cdk/stacks/events-aggregator-stack.ts`) deploys:
 
 - 1 Lambda (Node.js 22, 256MB, 60s timeout)
-- 3 EventBridge rules (hourly, daily, weekly)
+- 3 EventBridge rules (asap, daily, weekly)
 - KMS encryption for logs
 - SNS alarm topic with Lambda error rate alarms
 
@@ -183,7 +183,7 @@ flowchart LR
     end
 
     subgraph Schedules
-        H[Hourly]
+        A[ASAP]
         D[Daily]
         W[Weekly]
     end
@@ -206,7 +206,7 @@ flowchart LR
     Q -->|single change event| IL
     IL -->|write| DB
 
-    H & D & W -->|schedule| GCW
+    A H & D & W D H & D & W W -->|schedule| GCW
     GCW -->|"query: changes since windowStart"| DB
     GCW -.->|"CountryChanges[]"| Build
     Build -->|NotificationMessage| Pub
