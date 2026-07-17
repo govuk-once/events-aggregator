@@ -2,18 +2,22 @@ import { Logger } from '@aws-lambda-powertools/logger';
 import { resolveCountry } from '../countries/mapping.js';
 import { fetchCountriesBatch } from '../govuk/contentApi.js';
 import { fetchChangedTravelAdvice } from '../govuk/searchApi.js';
+import type { ChangesAdapter, CountryChanges } from './types.js';
 
-export interface CountryChanges {
-  slug: string;
-  title: string;
-  changes: { note: string; timestamp: string }[];
-}
+export type { CountryChanges, ChangesAdapter } from './types.js';
 
-export async function getChangesForWindow(
+/**
+ * GOV.UK API adapter — polls the Search and Content APIs.
+ *
+ * This is the only adapter today. To add a second (e.g. DynamoDB),
+ * implement the same ChangesAdapter signature and swap or compose
+ * at the handler level.
+ */
+export const getChangesForWindow: ChangesAdapter = async (
   windowStart: string,
   logger: Logger,
   countryFilter?: string,
-): Promise<CountryChanges[]> {
+): Promise<CountryChanges[]> => {
   const searchResponse = await fetchChangedTravelAdvice(windowStart);
   logger.info('Search API returned results', {
     total: searchResponse.total,
@@ -75,4 +79,4 @@ export async function getChangesForWindow(
   }
 
   return changes;
-}
+};
