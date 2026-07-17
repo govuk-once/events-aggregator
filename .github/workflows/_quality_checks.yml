@@ -1,0 +1,211 @@
+name: Quality Checks
+
+on:
+  workflow_call:
+
+jobs:
+  AuthandCacheModules:
+    name: 🧹 Auth to NPM and populate pnpm cache
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      - name: Get PNPM Version
+        id: pnpm-version
+        run: echo "pnpm_version=$(jq -r '.packageManager' package.json)" >> $GITHUB_OUTPUT
+
+      - name: Install pnpm
+        run: npm install -g ${{ steps.pnpm-version.outputs.pnpm_version }}
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: 'pnpm'
+
+      #  commented out as have not yet setup the private registry
+      # - name: Set govuk-once registry
+      #   run: pnpm config set @govuk-once:registry https://npm.pkg.github.com/
+
+      # - name: Set govuk-once auth token
+      #   run: pnpm config set //npm.pkg.github.com/:_authToken ${{ secrets.GHP_READ_PACKAGES }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+  Linting:
+    name: 🧹 Linting & Formatting
+    runs-on: ubuntu-latest
+    needs: AuthandCacheModules
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      - name: Get PNPM Version
+        id: pnpm-version
+        run: echo "pnpm_version=$(jq -r '.packageManager' package.json)" >> $GITHUB_OUTPUT
+
+      - name: Install pnpm
+        run: npm install -g ${{ steps.pnpm-version.outputs.pnpm_version }}
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run format check
+        run: pnpm run format:check
+
+      - name: Run lint check
+        run: pnpm run lint:check
+
+  TypeChecks:
+    name: 🔍 Type Checks
+    runs-on: ubuntu-latest
+    needs: AuthandCacheModules
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      - name: Get PNPM Version
+        id: pnpm-version
+        run: echo "pnpm_version=$(jq -r '.packageManager' package.json)" >> $GITHUB_OUTPUT
+
+      - name: Install pnpm
+        run: npm install -g ${{ steps.pnpm-version.outputs.pnpm_version }}
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Static Typechecks
+        run: pnpm run types:check
+
+  UnitTests:
+    name: 🧪 Unit Tests
+    runs-on: ubuntu-latest
+    needs: AuthandCacheModules
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      - name: Get PNPM Version
+        id: pnpm-version
+        run: echo "pnpm_version=$(jq -r '.packageManager' package.json)" >> $GITHUB_OUTPUT
+
+      - name: Install pnpm
+        run: npm install -g ${{ steps.pnpm-version.outputs.pnpm_version }}
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Unit Tests
+        run: pnpm run test:unit
+
+  CDKTests:
+    name: 🦺  CDK Tests
+    runs-on: ubuntu-latest
+    needs: AuthandCacheModules
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      - name: Get PNPM Version
+        id: pnpm-version
+        run: echo "pnpm_version=$(jq -r '.packageManager' package.json)" >> $GITHUB_OUTPUT
+
+      - name: Install pnpm
+        run: npm install -g ${{ steps.pnpm-version.outputs.pnpm_version }}
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run CDK Tests
+        run: pnpm run test:cdk
+
+  CDKSynth:
+    name: 🔍 CDK Synth
+    runs-on: ubuntu-latest
+    needs: AuthandCacheModules
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      - name: Get PNPM Version
+        id: pnpm-version
+        run: echo "pnpm_version=$(jq -r '.packageManager' package.json)" >> $GITHUB_OUTPUT
+
+      - name: Install pnpm
+        run: npm install -g ${{ steps.pnpm-version.outputs.pnpm_version }}
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run CDK Synth
+        run: pnpm run cdk synth
+
+  CheckovScan:
+    name: 🔍 Checkov Scan
+    runs-on: ubuntu-latest
+    needs: [AuthandCacheModules, CDKSynth]
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v5
+
+      - name: Get PNPM Version
+        id: pnpm-version
+        run: echo "pnpm_version=$(jq -r '.packageManager' package.json)" >> $GITHUB_OUTPUT
+
+      - name: Install pnpm
+        run: npm install -g ${{ steps.pnpm-version.outputs.pnpm_version }}
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Checkov GitHub Action
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: cdk.out
+          config_file: .checkov.yaml
+          baseline: .checkov.baseline

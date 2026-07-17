@@ -1,0 +1,14 @@
+*.js
+!cucumber.js
+*.d.ts
+node_modules
+dist
+.vscode
+coverage
+
+# CDK asset staging directory
+.cdk.staging
+cdk.out
+
+# macOS
+.DS_Store

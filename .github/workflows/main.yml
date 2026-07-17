@@ -1,0 +1,32 @@
+name: Pull Request
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  QualityChecks:
+    name: 🧪  Quality Checks
+    # needs: GetDependencies
+    secrets: inherit
+    uses: ./.github/workflows/_quality_checks.yml
+
+  DeployToDev:
+    name: 🛠️  Deploy To Dev Env
+    needs: QualityChecks
+    secrets: inherit
+    uses: ./.github/workflows/_build_deploy.yaml
+    with:
+      environment: dev
+      aws_account: 513758042057 # govuk-app-infra-sandbox account
+
+
+  # DeployToStaging:
+  #   name: 🛠️  Deploy To Staging Env
+  #   needs: QualityChecks
+  #   secrets: inherit
+  #   uses: ./.github/workflows/_build_deploy.yaml
+  #   with:
+  #     environment: staging
+  #     aws_account: 33333333333

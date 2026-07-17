@@ -1,0 +1,42 @@
+framework:
+  - cloudformation
+  - secrets
+
+directory:
+  - cdk.out
+
+# Skip specific checks (add check IDs as needed)
+skip-check:
+  # Lambda checks for example function
+  - CKV_AWS_115 # Lambda function concurrent execution limit
+  - CKV_AWS_116 # Lambda function DLQ
+  - CKV_AWS_117 # Lambda function VPC configuration
+  - CKV_AWS_173 # Lambda environment variable encryption
+  # - CKV_AWS_18  # Example: S3 bucket logging
+  # - CKV_AWS_19  # Example: S3 bucket encryption
+
+# Soft fail - don't block commits on failed checks
+# soft-fail: true
+
+# Output format
+output: cli
+
+# Compact output
+compact: true
+
+# Suppress successful checks output
+quiet: false
+
+# Download external checks
+# download-external-modules: true
+
+# Fail on severity level (critical, high, medium, low, none)
+# check:
+#   - CKV_AWS_*
+
+# Enable/disable specific frameworks
+# skip-framework:
+#   - secrets
+
+# Baseline file for suppressing known issues
+baseline: .checkov.baseline

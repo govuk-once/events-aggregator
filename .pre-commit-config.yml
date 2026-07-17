@@ -1,0 +1,81 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    hooks:
+      - id: check-merge-conflict
+    rev: v6.0.0
+  - repo: https://github.com/Yelp/detect-secrets
+    hooks:
+      - args:
+          - --baseline
+          - .secrets.baseline
+        id: detect-secrets
+        exclude: pnpm-lock.yaml
+    rev: v1.5.0
+  - repo: local
+    hooks:
+      - id: lint-fix
+        name: lint-fix
+        language: system
+        entry: pnpm run lint:fix
+        pass_filenames: false
+        stages: [pre-commit]
+      - id: lint-check
+        name: lint-check
+        language: system
+        entry: pnpm run lint:check
+        pass_filenames: false
+        stages: [pre-commit]
+      - id: format-fix
+        name: format-fix
+        entry: pnpm run format:fix
+        pass_filenames: false
+        stages: [pre-commit]
+        language: system
+      - id: format-check
+        name: format-check
+        entry: pnpm run format:check
+        pass_filenames: false
+        stages: [pre-commit]
+        language: system
+      - id: types
+        name: types-check
+        entry: pnpm run types:check
+        pass_filenames: false
+        stages: [pre-commit]
+        language: system
+      - id: cdk-tests
+        name: cdk-tests
+        language: system
+        entry: pnpm run test:cdk
+        pass_filenames: false
+        stages: [pre-commit]
+      - id: unit-tests
+        name: unit-tests
+        language: system
+        entry: pnpm run test:unit
+        pass_filenames: false
+        stages: [pre-commit]
+      - id: bdd-tests
+        name: bdd-tests
+        language: system
+        entry: pnpm run test:bdd
+        pass_filenames: false
+        stages: [pre-commit]
+      - id: cdk-synth
+        name: cdk-synth
+        language: system
+        entry: pnpm run cdk synth
+        pass_filenames: false
+        stages: [pre-commit]
+      - id: checkov
+        name: checkov-cfn-template-scan
+        language: system
+        entry: checkov --config-file .checkov.yaml
+        pass_filenames: false
+        stages: [pre-commit]

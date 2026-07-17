@@ -1,0 +1,68 @@
+{
+  "name": "govuk-events-aggregator",
+  "description": "Events aggregator for Push Notifications",
+  "version": "0.1.0",
+  "bin": {
+    "service-template": "cdk/service-template.ts"
+  },
+  "engines": {
+    "node": "24.12.0",
+    "pnpm": "10.25.0"
+  },
+  "packageManager": "pnpm@10.25.0",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "dev": "concurrently -n tsc,cdk -c purple,orange\"tsc -w\" \"cdk watch --hotswap\"",
+    "test": "vitest run",
+    "test:unit": "vitest run --coverage src --passWithNoTests",
+    "test:cdk": "vitest run --coverage cdk --passWithNoTests",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:bdd": "cucumber-js",
+    "test:bdd:watch": "cucumber-js --watch",
+    "cdk": "cdk",
+    "cdk:watch": "cdk watch",
+    "cdk:diff": "cdk diff",
+    "cdk:deploy": "cdk deploy --require-approval never",
+    "cdk:destroy": "cdk destroy",
+    "lint:check": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format:check": "prettier --check .",
+    "format:fix": "prettier --write .",
+    "types:check": "tsc --noEmit",
+    "deploy:test": "cdk deploy --context environment=test --all --require-approval never",
+    "deploy:dev": "cdk deploy --context environment=dev --all --require-approval never",
+    "deploy:stag": "cdk deploy --context environment=stag --all --require-approval never",
+    "deploy:prod": "cdk deploy --context environment=prod --all --require-approval never"
+  },
+  "devDependencies": {
+    "@cucumber/cucumber": "^12.4.0",
+    "@cucumber/pretty-formatter": "^2.4.1",
+    "@eslint/js": "^9.39.1",
+    "@types/chai": "^5.2.3",
+    "@types/node": "^24.10.1",
+    "@typescript-eslint/eslint-plugin": "^8.48.1",
+    "@typescript-eslint/parser": "^8.48.1",
+    "@vitest/coverage-v8": "4.0.15",
+    "@vitest/ui": "^4.0.15",
+    "aws-cdk": "2.1033.0",
+    "chai": "^6.2.1",
+    "concurrently": "^9.2.1",
+    "esbuild": "^0.27.1",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "globals": "^16.5.0",
+    "jiti": "^2.6.1",
+    "prettier": "^3.7.4",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.48.1",
+    "vitest": "^4.0.15"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "2.215.0",
+    "constructs": "^10.4.3"
+  }
+}
