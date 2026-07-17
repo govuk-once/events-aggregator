@@ -18,10 +18,7 @@ flowchart LR
         Pub[publishToUns]
     end
 
-    subgraph "ChangesAdapter: GOV.UK APIs"
-        SA[Search API]
-        CA[Content API]
-    end
+    GOVUK["GOV.UK APIs\nSearch + Content"]
 
     subgraph Delivery
         UNS[UNS]
@@ -29,7 +26,7 @@ flowchart LR
     end
 
     H & D & W -->|schedule| GCW
-    GCW -->|"query: changes since windowStart"| SA & CA
+    GCW -->|"query: changes since windowStart"| GOVUK
     GCW -.->|"CountryChanges[]"| Build
     Build -->|NotificationMessage| Pub
     Pub -->|topic + message| UNS
