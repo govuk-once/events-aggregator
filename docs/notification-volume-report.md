@@ -121,4 +121,4 @@ Total:                              43 calls  (< 5 seconds at 10 req/sec)
 
 ---
 
-*For interactive charts, open `docs/notification-volume-report.html` locally.*
+*Data sourced from live GOV.UK Content API on 2026-07-17.*
