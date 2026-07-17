@@ -52,6 +52,28 @@ If a user subscribes to these countries, how many notifications would they recei
 - **Daily:** digest on 44% of days (159 of 365)
 - **Weekly:** digest every single week (52 of 52)
 
+## Death by notification: subscribing to all 226 countries
+
+Each country sends its **own** notification per schedule. Subscribing to all 226 means up to 226 separate notifications landing in your inbox per window — not one combined digest.
+
+| Schedule | Notifications/year | Average per day | Median per day | Peak day |
+|----------|-------------------:|----------------:|---------------:|---------:|
+| ASAP | 1,791 | 4.9 | — | — |
+| Daily | 1,717 | 4.7 | 3 | 207 |
+| Weekly | 1,442 | — | 22/week | 210/week |
+
+### Breaking that down:
+
+**ASAP:** ~5 push notifications per day on average. Manageable in isolation, but every single one is a separate country's alert — so your phone buzzes 5 times across the day with unrelated country updates.
+
+**Daily:** You'd get a digest notification on 83% of days (306 of 365). On a typical day, 3 different countries send you a digest. On the peak day, 207 countries all updated at once — 207 separate notifications.
+
+**Weekly:** Every single week of the year, you'd get notifications. A typical week: 22 separate country digests arrive. Peak week: 210 countries all fire a weekly digest simultaneously.
+
+### The lesson:
+
+Subscribing to all countries on any schedule is unusable. The UI should guide users toward subscribing to the countries they actually travel to (typically 1-5). At that scale, even ASAP is less than 1 notification per week per country.
+
 ## Changes Per Week (last year)
 
 ```
