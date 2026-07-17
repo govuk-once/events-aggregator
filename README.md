@@ -32,7 +32,7 @@ flowchart LR
     H & D & W -->|schedule input| GCW
     GCW -->|query| SA
     GCW -->|fetch| CA
-    GCW -.->|CountryChanges[]| Build
+    GCW -.->|"CountryChanges[]"| Build
     Build -->|NotificationMessage| Pub
     Pub -->|topic + message| UNS
     UNS -->|push / notify| Users
