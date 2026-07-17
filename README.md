@@ -18,7 +18,9 @@ flowchart LR
         Pub[publishToUns]
     end
 
-    GOVUK["GOV.UK APIs\nSearch + Content"]
+    subgraph "ChangesAdapter: GOV.UK Content API"
+        GOVUK[Search API + Content API]
+    end
 
     subgraph Delivery
         UNS[UNS]
