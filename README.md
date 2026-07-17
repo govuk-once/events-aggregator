@@ -12,14 +12,13 @@ flowchart LR
         W[Weekly]
     end
 
-    subgraph Lambda["events-aggregator Lambda"]
-        direction TB
+    subgraph "Digest Lambda"
         GCW["getChangesForWindow()\n— ChangesAdapter —"]
-        Build[buildMessage\ntitle + body + dedup]
+        Build[buildMessage]
         Pub[publishToUns]
     end
 
-    subgraph "GOV.UK API Adapter (current)"
+    subgraph "ChangesAdapter: GOV.UK APIs"
         SA[Search API]
         CA[Content API]
     end
@@ -29,13 +28,13 @@ flowchart LR
         Users[Users]
     end
 
-    H & D & W -->|schedule input| GCW
-    GCW -->|query| SA
-    GCW -->|fetch| CA
+    H & D & W -->|schedule| GCW
+    GCW -->|query changed pages| SA
+    GCW -->|fetch change_history| CA
     GCW -.->|"CountryChanges[]"| Build
     Build -->|NotificationMessage| Pub
     Pub -->|topic + message| UNS
-    UNS -->|push / notify| Users
+    UNS -->|notify| Users
 ```
 
 Three EventBridge schedules (hourly, daily, weekly) trigger the same Lambda with a different `schedule` input. Each run:
@@ -180,18 +179,25 @@ If GOV.UK publishes change events to a queue (e.g. RabbitMQ), the polling is rep
 
 ```mermaid
 flowchart LR
-    subgraph "Event Ingest (new)"
+    subgraph "Ingest Lambda (new)"
         Q[SQS Queue\nfrom RabbitMQ]
-        IL[Ingest Lambda]
+        IL[resolveCountry + store]
     end
 
-    DB[(DynamoDB\nevents by country + time)]
-
-    subgraph "Digest (existing handler)"
+    subgraph Schedules
         H[Hourly]
         D[Daily]
         W[Weekly]
-        DL[Digest Lambda]
+    end
+
+    subgraph "Digest Lambda (unchanged)"
+        GCW["getChangesForWindow()\n— ChangesAdapter —"]
+        Build[buildMessage]
+        Pub[publishToUns]
+    end
+
+    subgraph "ChangesAdapter: DynamoDB"
+        DB[(DynamoDB\nevents by country + time)]
     end
 
     subgraph Delivery
@@ -200,12 +206,14 @@ flowchart LR
     end
 
     Q -->|single change event| IL
-    IL -->|resolve + store| DB
+    IL -->|write| DB
 
-    H & D & W -->|schedule| DL
-    DL -->|"query: get changes for my window"| DB
-    DL -->|build messages + publish| UNS
-    UNS --> Users
+    H & D & W -->|schedule| GCW
+    GCW -->|"query: changes since windowStart"| DB
+    GCW -.->|"CountryChanges[]"| Build
+    Build -->|NotificationMessage| Pub
+    Pub -->|topic + message| UNS
+    UNS -->|notify| Users
 ```
 
 **The key insight:** today the handler calls the Search API ("what changed in my window?") then the Content API ("what are the details?"). In the push model, those two steps collapse into a single DynamoDB query — "get me all events in the last hour/day/week." The events already contain the change details because they arrived as individual events and were stored as-is.
