@@ -170,6 +170,58 @@ cdk/
   constants/              # Service metadata, environment helpers
 ```
 
+## Future: push model from GOV.UK
+
+If GOV.UK publishes change events to a queue (e.g. RabbitMQ), the service evolves into two Lambdas with a DynamoDB table between them:
+
+```mermaid
+flowchart LR
+    subgraph Ingest
+        Q[SQS Queue\nfrom RabbitMQ bridge]
+        IL[Ingest Lambda]
+        DB[(DynamoDB\nslug + timestamp)]
+    end
+
+    subgraph Digest["Digest (existing logic)"]
+        H2[Hourly]
+        D2[Daily]
+        W2[Weekly]
+        DL[Digest Lambda]
+    end
+
+    subgraph Shared["Unchanged modules"]
+        RC[resolveCountry]
+        BM[buildMessage]
+        PU[publishToUns]
+    end
+
+    subgraph Delivery
+        UNS[UNS]
+        Users[Users]
+    end
+
+    Q -->|change event| IL
+    IL -->|resolve + store| DB
+    H2 & D2 & W2 -->|schedule| DL
+    DL -->|query since windowStart| DB
+    DL --> RC
+    DL --> BM
+    DL --> PU
+    PU --> UNS
+    UNS --> Users
+```
+
+**What changes:**
+- New ingest Lambda receives events from SQS, resolves the country, writes to DynamoDB
+- Digest Lambda (the current handler) replaces GOV.UK API calls with a DynamoDB query
+- New infra: SQS queue, DynamoDB table (TTL: 8 days), ingest Lambda
+
+**What stays identical:**
+- `resolveCountry`, `buildMessage`, `publishToUns`
+- Topic format, notification contract, dedup marker
+- EventBridge schedules, security hardening, alarms
+- The simulate script (would query DynamoDB instead of GOV.UK APIs)
+
 ## TODO
 
 - [ ] Configure Lambda in VPC with access to UNS private API Gateway endpoint (same pattern as Flex)
