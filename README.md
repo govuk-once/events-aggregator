@@ -27,7 +27,7 @@ flowchart LR
         Users[Users]
     end
 
-    A H & D & W D H & D & W W -->|schedule| GCW
+    AS & D & W -->|schedule| GCW
     GCW -->|"query: changes since windowStart"| GOVUK
     GCW -.->|"CountryChanges[]"| Build
     Build -->|NotificationMessage| Pub
@@ -206,7 +206,7 @@ flowchart LR
     Q -->|single change event| IL
     IL -->|write| DB
 
-    A H & D & W D H & D & W W -->|schedule| GCW
+    AS & D & W -->|schedule| GCW
     GCW -->|"query: changes since windowStart"| DB
     GCW -.->|"CountryChanges[]"| Build
     Build -->|NotificationMessage| Pub
