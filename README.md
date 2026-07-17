@@ -14,15 +14,14 @@ flowchart LR
 
     subgraph Lambda["events-aggregator Lambda"]
         direction TB
-        Search[Search API\nfilter by time window]
-        Resolve[Resolve country\nmapping lookup]
-        Content[Content API\nfetch change_history]
-        Build[Build message\ntitle + body + dedup]
+        GCW["getChangesForWindow()\n— ChangesAdapter —"]
+        Build[buildMessage\ntitle + body + dedup]
+        Pub[publishToUns]
     end
 
-    subgraph GOV.UK
-        SA["/api/search.json"]
-        CA["/api/content/\nforeign-travel-advice/{slug}"]
+    subgraph "GOV.UK API Adapter (current)"
+        SA[Search API]
+        CA[Content API]
     end
 
     subgraph Delivery
@@ -30,23 +29,23 @@ flowchart LR
         Users[Users]
     end
 
-    H & D & W -->|schedule input| Search
-    Search -->|query| SA
-    SA -.->|changed pages| Resolve
-    Resolve -->|supported slugs| Content
-    Content -->|fetch| CA
-    CA -.->|change_history| Build
-    Build -->|topic + message| UNS
+    H & D & W -->|schedule input| GCW
+    GCW -->|query| SA
+    GCW -->|fetch| CA
+    GCW -.->|CountryChanges[]| Build
+    Build -->|NotificationMessage| Pub
+    Pub -->|topic + message| UNS
     UNS -->|push / notify| Users
 ```
 
 Three EventBridge schedules (hourly, daily, weekly) trigger the same Lambda with a different `schedule` input. Each run:
 
-1. Queries the GOV.UK Search API for travel advice pages updated within the time window
-2. Resolves each result against an in-code country mapping (keyed on `content_id`)
-3. Fetches full change history from the GOV.UK Content API (rate-limited to 10 req/s)
-4. Builds notification messages from relevant changes
-5. Publishes to UNS with a topic per country/frequency (e.g. `travel-advice/pakistan/weekly`)
+1. Calls `getChangesForWindow(windowStart)` — the **ChangesAdapter** seam that fetches country changes for the time window
+2. Today's adapter queries the GOV.UK Search API then fetches change history from the Content API (rate-limited to 10 req/s)
+3. Builds notification messages from relevant changes (`buildMessage`)
+4. Publishes to UNS with a topic per country/frequency (e.g. `travel-advice/pakistan/weekly`)
+
+The adapter is the extension point — to switch data sources (e.g. DynamoDB in a push model), implement the same `ChangesAdapter` signature. Everything downstream stays unchanged.
 
 Unknown countries are logged for manual triage. Failed content fetches are retried 3x with backoff, then skipped — other countries continue.
 
@@ -151,8 +150,11 @@ Lambda environment variables:
 
 ```
 src/
-  handler.ts              # Lambda entry point
+  handler.ts              # Lambda entry point — orchestrates the digest flow
   config.ts               # Schedule validation, time windows, UNS config
+  changes/
+    types.ts              # ChangesAdapter interface + CountryChanges type
+    getChangesForWindow.ts  # GOV.UK API adapter (the only adapter today)
   govuk/
     searchApi.ts          # GOV.UK Search API client
     contentApi.ts         # Content API with retry + rate limiting
@@ -162,6 +164,8 @@ src/
   notifications/
     messageBuilder.ts     # Builds notification messages with dedup marker
     unsClient.ts          # UNS publish with optional SigV4 signing
+  utils/
+    requireEnvVars.ts     # Fail-fast env var validation
 scripts/
   simulate.ts             # Local dry-run harness
 cdk/
@@ -212,11 +216,12 @@ flowchart LR
 - SQS queue (bridged from RabbitMQ)
 
 **What changes in the digest Lambda:**
-- Replace `fetchChangedTravelAdvice` + `fetchCountriesBatch` with one DynamoDB query: "all items where timestamp >= windowStart"
-- The result is the same shape — a list of countries with their change notes — so `buildMessage` and `publishToUns` work unchanged
+- A new `ChangesAdapter` implementation queries DynamoDB instead of the GOV.UK APIs
+- The handler calls the same `getChangesForWindow` interface — it doesn't know the source changed
+- Returns the same `CountryChanges[]` shape, so `buildMessage` and `publishToUns` work unchanged
 
 **What stays identical:**
-- `resolveCountry`, `buildMessage`, `publishToUns`
+- The handler, `buildMessage`, `publishToUns`, `ChangesAdapter` interface
 - Topic format, notification contract, dedup marker
 - EventBridge schedules, dryRun/country/windowStart overrides
 - Security hardening, alarms, CDK patterns
