@@ -214,6 +214,10 @@ flowchart LR
     Build -->|NotificationMessage| Pub
     Pub -->|topic + message| UNS
     UNS -->|notify| Users
+
+    style Q fill:#d1fae5,stroke:#047857
+    style IL fill:#d1fae5,stroke:#047857
+    style DB fill:#d1fae5,stroke:#047857
 ```
 
 **The key insight:** today the handler calls the Search API ("what changed in my window?") then the Content API ("what are the details?"). In the push model, those two steps collapse into a single DynamoDB query — "get me all events in the last hour/day/week." The events already contain the change details because they arrived as individual events and were stored as-is.
