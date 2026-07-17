@@ -172,27 +172,22 @@ cdk/
 
 ## Future: push model from GOV.UK
 
-If GOV.UK publishes change events to a queue (e.g. RabbitMQ), the service evolves into two Lambdas with a DynamoDB table between them:
+If GOV.UK publishes change events to a queue (e.g. RabbitMQ), the polling is replaced by an event-sourced pattern. Events arrive one at a time and accumulate in DynamoDB. The digest Lambda stays the same — it just reads from DynamoDB instead of the GOV.UK APIs.
 
 ```mermaid
 flowchart LR
-    subgraph Ingest
-        Q[SQS Queue\nfrom RabbitMQ bridge]
+    subgraph "Event Ingest (new)"
+        Q[SQS Queue\nfrom RabbitMQ]
         IL[Ingest Lambda]
-        DB[(DynamoDB\nslug + timestamp)]
     end
 
-    subgraph Digest["Digest (existing logic)"]
-        H2[Hourly]
-        D2[Daily]
-        W2[Weekly]
+    DB[(DynamoDB\nevents by country + time)]
+
+    subgraph "Digest (existing handler)"
+        H[Hourly]
+        D[Daily]
+        W[Weekly]
         DL[Digest Lambda]
-    end
-
-    subgraph Shared["Unchanged modules"]
-        RC[resolveCountry]
-        BM[buildMessage]
-        PU[publishToUns]
     end
 
     subgraph Delivery
@@ -200,27 +195,31 @@ flowchart LR
         Users[Users]
     end
 
-    Q -->|change event| IL
+    Q -->|single change event| IL
     IL -->|resolve + store| DB
-    H2 & D2 & W2 -->|schedule| DL
-    DL -->|query since windowStart| DB
-    DL --> RC
-    DL --> BM
-    DL --> PU
-    PU --> UNS
+
+    H & D & W -->|schedule| DL
+    DL -->|"query: get changes for my window"| DB
+    DL -->|build messages + publish| UNS
     UNS --> Users
 ```
 
-**What changes:**
-- New ingest Lambda receives events from SQS, resolves the country, writes to DynamoDB
-- Digest Lambda (the current handler) replaces GOV.UK API calls with a DynamoDB query
-- New infra: SQS queue, DynamoDB table (TTL: 8 days), ingest Lambda
+**The key insight:** today the handler calls the Search API ("what changed in my window?") then the Content API ("what are the details?"). In the push model, those two steps collapse into a single DynamoDB query — "get me all events in the last hour/day/week." The events already contain the change details because they arrived as individual events and were stored as-is.
+
+**What's new:**
+- Ingest Lambda: receives a single event from SQS, calls `resolveCountry`, writes `{ slug, changeNote, timestamp }` to DynamoDB
+- DynamoDB table: partition key = `slug`, sort key = `timestamp`, TTL = 8 days
+- SQS queue (bridged from RabbitMQ)
+
+**What changes in the digest Lambda:**
+- Replace `fetchChangedTravelAdvice` + `fetchCountriesBatch` with one DynamoDB query: "all items where timestamp >= windowStart"
+- The result is the same shape — a list of countries with their change notes — so `buildMessage` and `publishToUns` work unchanged
 
 **What stays identical:**
 - `resolveCountry`, `buildMessage`, `publishToUns`
 - Topic format, notification contract, dedup marker
-- EventBridge schedules, security hardening, alarms
-- The simulate script (would query DynamoDB instead of GOV.UK APIs)
+- EventBridge schedules, dryRun/country/windowStart overrides
+- Security hardening, alarms, CDK patterns
 
 ## TODO
 
