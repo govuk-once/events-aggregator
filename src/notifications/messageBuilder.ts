@@ -1,6 +1,10 @@
 import { createHash } from 'node:crypto';
-import type { ChangeHistoryEntry } from '../govuk/types.js';
 import type { Schedule } from '../config.js';
+
+export interface ChangeEntry {
+  note: string;
+  timestamp: string;
+}
 
 export interface NotificationMessage {
   NotificationID: string;
@@ -14,18 +18,13 @@ export function buildMessage(
   countryName: string,
   countrySlug: string,
   schedule: Schedule,
-  changeHistory: ChangeHistoryEntry[],
+  changes: ChangeEntry[],
   windowStart: string,
 ): NotificationMessage | null {
   const windowStartMs = new Date(windowStart).getTime();
-  const relevantChanges = changeHistory
-    .filter(
-      (entry) => new Date(entry.public_timestamp).getTime() >= windowStartMs,
-    )
-    .map((entry) => ({
-      note: entry.note,
-      timestamp: entry.public_timestamp,
-    }));
+  const relevantChanges = changes.filter(
+    (entry) => new Date(entry.timestamp).getTime() >= windowStartMs,
+  );
 
   if (relevantChanges.length === 0) return null;
 
@@ -59,7 +58,7 @@ export function buildMessage(
 function computeDedupMarker(
   slug: string,
   schedule: string,
-  changes: { note: string; timestamp: string }[],
+  changes: ChangeEntry[],
 ): string {
   const payload = changes
     .map((c) => `${c.timestamp}:${c.note}`)

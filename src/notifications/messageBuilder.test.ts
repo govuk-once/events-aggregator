@@ -1,12 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { buildMessage } from './messageBuilder.js';
-import type { ChangeHistoryEntry } from '../govuk/types.js';
+import { buildMessage, type ChangeEntry } from './messageBuilder.js';
 
 describe('messageBuilder', () => {
-  const history: ChangeHistoryEntry[] = [
-    { note: 'Recent change', public_timestamp: '2026-07-16T14:30:00Z' },
-    { note: 'Older change', public_timestamp: '2026-07-16T13:00:00Z' },
-    { note: 'Very old change', public_timestamp: '2026-07-10T10:00:00Z' },
+  const history: ChangeEntry[] = [
+    { note: 'Recent change', timestamp: '2026-07-16T14:30:00Z' },
+    { note: 'Older change', timestamp: '2026-07-16T13:00:00Z' },
+    { note: 'Very old change', timestamp: '2026-07-10T10:00:00Z' },
   ];
 
   it('returns null when no changes match the window', () => {

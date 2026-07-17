@@ -1,10 +1,8 @@
 import { Logger } from '@aws-lambda-powertools/logger';
 import { Tracer } from '@aws-lambda-powertools/tracer';
 import type { ScheduledEvent } from 'aws-lambda';
+import { getChangesForWindow } from './changes/getChangesForWindow.js';
 import { getTimeWindow, getUnsConfig, isValidSchedule } from './config.js';
-import { resolveCountry } from './countries/mapping.js';
-import { fetchCountriesBatch } from './govuk/contentApi.js';
-import { fetchChangedTravelAdvice } from './govuk/searchApi.js';
 import { buildMessage } from './notifications/messageBuilder.js';
 import { publishToUns } from './notifications/unsClient.js';
 
@@ -62,37 +60,6 @@ function resolveInput(event: ScheduledEvent): ResolvedInput {
   return { schedule, dryRun, country, windowStart, unsConfig };
 }
 
-function filterSupportedCountries(
-  results: { content_id?: string; title: string; link: string }[],
-  countryFilter: string | undefined,
-): string[] {
-  const slugs: string[] = [];
-
-  for (const result of results) {
-    const contentId = result.content_id;
-    if (!contentId) continue;
-
-    const resolved = resolveCountry(contentId);
-
-    if (resolved.status === 'unknown') {
-      logger.warn('Unknown country detected', {
-        event: 'unknown_country',
-        content_id: contentId,
-        title: result.title,
-        link: result.link,
-      });
-      continue;
-    }
-
-    if (resolved.status === 'unsupported') continue;
-    if (countryFilter && resolved.country.slug !== countryFilter) continue;
-
-    slugs.push(resolved.country.slug);
-  }
-
-  return slugs;
-}
-
 export const handler = async (event: ScheduledEvent): Promise<void> => {
   const segment = tracer.getSegment()!;
   const subsegment = segment.addNewSubsegment('## handler');
@@ -103,51 +70,20 @@ export const handler = async (event: ScheduledEvent): Promise<void> => {
       resolveInput(event);
     logger.info('Starting poll', { schedule, windowStart, dryRun, country });
 
-    const searchResponse = await fetchChangedTravelAdvice(windowStart);
-    logger.info('Search API returned results', {
-      total: searchResponse.total,
-      count: searchResponse.results.length,
-    });
+    const countryChanges = await getChangesForWindow(
+      windowStart,
+      logger,
+      country,
+    );
 
-    if (searchResponse.results.length === 0) {
+    if (countryChanges.length === 0) {
       logger.info('No changes detected, exiting');
       return;
     }
 
-    const supportedSlugs = filterSupportedCountries(
-      searchResponse.results,
-      country,
-    );
-
-    if (supportedSlugs.length === 0) {
-      logger.info('No supported countries changed, exiting');
-      return;
-    }
-
-    logger.info('Fetching content for changed countries', {
-      count: supportedSlugs.length,
-    });
-
-    const contentResults = await fetchCountriesBatch(
-      supportedSlugs,
-      (slug, error) => {
-        logger.error('Failed to fetch content', {
-          slug,
-          error: error.message,
-        });
-      },
-    );
-
     let published = 0;
-    for (const [slug, content] of contentResults) {
-      const changeHistory = content.details.change_history ?? [];
-      const message = buildMessage(
-        content.title,
-        slug,
-        schedule,
-        changeHistory,
-        windowStart,
-      );
+    for (const { slug, title, changes } of countryChanges) {
+      const message = buildMessage(title, slug, schedule, changes, windowStart);
 
       if (!message) continue;
 
