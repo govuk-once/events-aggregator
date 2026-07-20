@@ -88,4 +88,4 @@ jobs:
           output-env-credentials: true
 
       - name: Deploy to Environment
-        run: pnpm run deploy:${{ inputs.environment }}
+        run: pnpm run deploy:dev
