@@ -1,5 +1,62 @@
 # Travel Advice Notifications — Changes to Approach
 
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph "GOV.UK"
+        SRC[Travel Advice Pages]
+    end
+
+    subgraph "Events Aggregator"
+        POLL[Poll for changes\nevery ~15 min]
+    end
+
+    subgraph "V1: Notification Flow"
+        UNS[UNS]
+        NC[Notification Centre]
+        OS[OneSignal]
+    end
+
+    subgraph "V2: Country Feed"
+        S3[(S3 Bucket\nper-country JSON)]
+        CF[CloudFront]
+        FEED[Country Page\natom-style feed]
+    end
+
+    subgraph "User"
+        PUSH[Push notification]
+        WEB[GOV.UK Web View]
+        BROWSE[Browse + Subscribe]
+    end
+
+    SRC -->|change detected| POLL
+    POLL -->|one notification per change| UNS
+    POLL -.->|write change feed| S3
+
+    UNS --> NC
+    UNS --> OS
+    OS --> PUSH
+    PUSH -->|tap| WEB
+
+    S3 -.-> CF
+    CF -.-> FEED
+    FEED -.-> BROWSE
+
+    style S3 fill:#d1fae5,stroke:#047857
+    style CF fill:#d1fae5,stroke:#047857
+    style FEED fill:#d1fae5,stroke:#047857
+    style BROWSE fill:#d1fae5,stroke:#047857
+```
+
+**Solid lines** = V1 (notification path). **Dashed lines / green** = V2 (country feed).
+
+Two user journeys:
+- **Action path:** push notification arrives → tap → GOV.UK web view (where the real advice lives)
+- **Discovery path (V2):** browse country page → see change feed → decide to subscribe
+
+---
+
 ## What changed
 
 Originally we planned to build daily/weekly digests into events-aggregator. This broke the UNS contract (one notification = one message) because a digest bundles multiple countries into one notification. UNS will need to solve rollups cross-source anyway (DVLA, DWP, Home Office all face this), so we've agreed to keep events-aggregator simple: **one change detected = one notification fired.** UNS owns the presentation.
