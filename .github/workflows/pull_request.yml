@@ -9,19 +9,19 @@ on:
 jobs:
   ValidatePR:
     name: Validate PR
-    uses: ../.github/workflows/_validate_pr.yml
+    uses: ./.github/workflows/_validate_pr.yml
   QualityChecks:
     name: 🧪  Quality Checks
     needs: ValidatePR
     # needs: GetDependencies
     secrets: inherit
-    uses: ../.github/workflows/_quality_checks.yml
+    uses: ./.github/workflows/_quality_checks.yml
 
   DeployToDev:
     name: 🛠️ Deploy To Dev Env
     needs: QualityChecks
     secrets: inherit
-    uses: ../.github/workflows/_build_deploy.yaml
+    uses: ./.github/workflows/_build_deploy.yaml
     with:
       environment: dev
       aws_account: 513758042057 # govuk-app-infra-sandbox account
