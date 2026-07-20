@@ -91,7 +91,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@56d6a583f00f6bad6d19d91d53a7bc3b8143d0e9 # v5.1.1
         with:
           role-to-assume: ${{ secrets.ROLE_TO_ASSUME }}
-          aws-region: ${{ inputs.AWS_REGION }}
+          aws-region: ${{ inputs.aws_region }}
           role-session-name: ${{ github.event.repository.name }}-${{ inputs.environment }}
 
       - name: Deploy to Environment
