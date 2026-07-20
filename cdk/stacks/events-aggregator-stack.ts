@@ -5,6 +5,11 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import * as path from 'path';
 import { Construct } from 'constructs';
 import { LambdaFactory } from '../cdk_constructs/LambdaFunctionFactory';
+import {
+  AccountRootPrincipal,
+  Effect,
+  PolicyStatement,
+} from 'aws-cdk-lib/aws-iam';
 
 export interface EventsAggregatorStackProps extends cdk.StackProps {
   serviceName: string;
@@ -27,7 +32,27 @@ export class EventsAggregatorStack extends cdk.Stack {
     cdk.Tags.of(this).add('Environment', props.environment);
 
     const lambdaFactory = new LambdaFactory(this, 'EventsAggregator');
-    const logKey = new kms.Key(this, 'eventsAggregatorKey', {});
+    const logKey = new kms.Key(this, 'eventsAggregatorKey', {
+      rotationPeriod: cdk.Duration.days(7),
+      pendingWindow: cdk.Duration.days(7),
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    logKey.addToResourcePolicy(
+      new PolicyStatement({
+        sid: 'AllowIAMPolicies',
+        effect: Effect.ALLOW,
+        principals: [new AccountRootPrincipal()],
+        actions: [
+          'kms:Encrypt',
+          'kms:Decrypt',
+          'kms:ReEncrypt*',
+          'kms:GenerateDataKey*',
+          'kms:DescribeKey',
+        ],
+        resources: ['*'],
+      }),
+    );
 
     lambdaFactory.createLambda('PollTravelContentLambda', {
       code: lambda.Code.fromAsset(
