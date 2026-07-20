@@ -34,7 +34,7 @@ export class EventsAggregatorStack extends cdk.Stack {
     const lambdaFactory = new LambdaFactory(this, 'EventsAggregator');
     const logKey = new kms.Key(this, 'eventsAggregatorKey', {
       rotationPeriod: cdk.Duration.days(90),
-      pendingWindow: cdk.Duration.days(7),
+      pendingWindow: cdk.Duration.days(30),
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
