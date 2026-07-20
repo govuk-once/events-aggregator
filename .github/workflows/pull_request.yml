@@ -21,7 +21,7 @@ jobs:
     name: 🛠️ Deploy To Dev Env
     needs: QualityChecks
     secrets: inherit
-    uses: ./.github/workflows/_build_deploy.yaml
+    uses: ./.github/workflows/_build_deploy.yml
     with:
       environment: dev
       aws_account: 513758042057 # govuk-app-infra-sandbox account
