@@ -18,8 +18,7 @@ jobs:
     secrets: inherit
     uses: ./.github/workflows/_build_deploy.yml
     with:
-      environment: dev
-      aws_account: 402561608377 # govuk-app-infra-sandbox account
+      environment: development
 
 
   # DeployToStaging:

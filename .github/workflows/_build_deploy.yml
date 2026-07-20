@@ -8,11 +8,6 @@ on:
         type: string
         required: true
         default: 'dev'
-      aws_account:
-        description: 'AWS account id'
-        type: string
-        required: true
-        default: '11111111111'
       aws_region:
         description: 'AWS region'
         type: string
@@ -33,15 +28,6 @@ on:
         options:
           - dev
           - staging
-      aws_account:
-        description: 'AWS account id'
-        required: true
-        default: '11111111111'
-        type: choice
-        options:
-          - '11111111111'
-          - '33333333333'
-        # ToDo: set account ID based in environment inputted
       aws_region:
         description: 'AWS region'
         required: false
@@ -92,7 +78,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.DEV_DEPLOYMENT_ROLE }}
           aws-region: ${{ inputs.aws_region }}
-          role-session-name: ${{ github.event.repository.name }}-${{ inputs.environment }}
+          output-env-credentials: true
 
       - name: Deploy to Environment
         run: pnpm run deploy:${{ inputs.environment }}
