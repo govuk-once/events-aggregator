@@ -62,10 +62,6 @@ jobs:
       id-token: write
       actions: write
       statuses: write
-    env:
-      AWS_REGION: ${{ inputs.aws_region }}
-      AWS_ACCOUNT: ${{ inputs.aws_account }}
-      ENVIRONMENT: ${{ inputs.environment }}
     concurrency:
       group: deploy-${{ inputs.environment }}
     steps:
