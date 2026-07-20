@@ -1,10 +1,11 @@
 import * as cdk from 'aws-cdk-lib/core';
+
 import { EventsAggregatorStack } from './stacks/events-aggregator-stack';
 import {
   getEnvironment,
   getResourceNamePrefix,
+  serviceMetadata,
 } from './constants/environments';
-import { serviceMetadata } from './constants/environments';
 
 const app = new cdk.App();
 

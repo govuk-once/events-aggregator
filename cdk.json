@@ -1,5 +1,5 @@
 {
-  "app": "npx ts-node --prefer-ts-exts cdk/events-aggregator.ts",
+  "app": "npx tsx cdk/events-aggregator.ts",
   "requireApproval": "never",
   "watch": {
     "include": ["**"],

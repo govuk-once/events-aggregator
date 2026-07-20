@@ -26,8 +26,8 @@ export class EventsAggregatorStack extends cdk.Stack {
     cdk.Tags.of(this).add('CostCenter', props.costCenter);
     cdk.Tags.of(this).add('Environment', props.environment);
 
-    const lambdaFactory = new LambdaFactory(scope, 'EventsAggregator');
-    const logKey = new kms.Key(scope, 'eventsAggregatorKey', {});
+    const lambdaFactory = new LambdaFactory(this, 'EventsAggregator');
+    const logKey = new kms.Key(this, 'eventsAggregatorKey', {});
 
     lambdaFactory.createLambda('PollTravelContentLambda', {
       code: lambda.Code.fromAsset(

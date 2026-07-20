@@ -2,7 +2,6 @@
   "name": "govuk-events-aggregator",
   "description": "Events aggregator for Push Notifications",
   "version": "0.1.0",
-  "type": "module",
   "bin": {
     "events-aggregator": "cdk/events-aggregator.ts"
   },
@@ -31,7 +30,7 @@
     "lint:fix": "eslint . --fix",
     "format:check": "prettier --check .",
     "format:fix": "prettier --write .",
-    "types:check": "tsc . --noEmit",
+    "types:check": "tsc --noEmit",
     "deploy:test": "cdk deploy --context environment=test --all --require-approval never",
     "deploy:dev": "cdk deploy --context environment=dev --all --require-approval never",
     "deploy:stag": "cdk deploy --context environment=stag --all --require-approval never",
@@ -64,6 +63,7 @@
   },
   "dependencies": {
     "aws-cdk-lib": "2.215.0",
-    "constructs": "^10.4.3"
+    "constructs": "^10.4.3",
+    "tsx": "^4.23.1"
   }
 }
