@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it , vi} from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as cdk from 'aws-cdk-lib';
 import { Template, Match } from 'aws-cdk-lib/assertions';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
@@ -31,11 +31,10 @@ const setup = (namingProvider?: INamingProvider): TestSetup => {
 };
 
 describe('EventBridgeScheduleFactory', () => {
-  
-  beforeEach(()=> {
+  beforeEach(() => {
     vi.stubEnv('ENVIRONMENT', 'Dev');
     vi.stubEnv('USER', 'CI');
-  })
+  });
 
   it('returns an EventBridge rule', () => {
     const { factory, fn } = setup();
