@@ -18,9 +18,9 @@ on:
         type: string
         required: false
         default: 'eu-west-2'
-       secrets:
+    secrets:
       ROLE_TO_ASSUME:
-        description: "AWS deployment role to assume"
+        description: 'AWS deployment role to assume'
         required: true
 
   workflow_dispatch:
@@ -47,6 +47,10 @@ on:
         required: false
         default: 'eu-west-2'
         type: string
+    secrets:
+      ROLE_TO_ASSUME:
+        description: 'AWS deployment role to assume'
+        required: true
 
 jobs:
   deploy:
