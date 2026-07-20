@@ -1,15 +1,15 @@
 import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as kms from 'aws-cdk-lib/aws-kms';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as path from 'path';
 import { Construct } from 'constructs';
 import { LambdaFactory } from '../cdk_constructs/LambdaFunctionFactory';
 import {
-  AccountRootPrincipal,
-  Effect,
-  PolicyStatement,
-} from 'aws-cdk-lib/aws-iam';
+  getResourceNamePrefix,
+  isEphemeralEnvironment,
+} from '../constants/environments';
 
 export interface EventsAggregatorStackProps extends cdk.StackProps {
   serviceName: string;
@@ -32,17 +32,19 @@ export class EventsAggregatorStack extends cdk.Stack {
     cdk.Tags.of(this).add('Environment', props.environment);
 
     const lambdaFactory = new LambdaFactory(this, 'EventsAggregator');
-    const logKey = new kms.Key(this, 'eventsAggregatorKey', {
-      rotationPeriod: cdk.Duration.days(90),
-      pendingWindow: cdk.Duration.days(30),
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    const logKey = new kms.Key(this, 'LogEncryptionKey', {
+      alias: `${getResourceNamePrefix()}-log-key`,
+      enableKeyRotation: true,
+      removalPolicy: isEphemeralEnvironment()
+        ? cdk.RemovalPolicy.DESTROY
+        : cdk.RemovalPolicy.RETAIN,
     });
 
     logKey.addToResourcePolicy(
-      new PolicyStatement({
-        sid: 'AllowIAMPolicies',
-        effect: Effect.ALLOW,
-        principals: [new AccountRootPrincipal()],
+      new iam.PolicyStatement({
+        principals: [
+          new iam.ServicePrincipal(`logs.${this.region}.amazonaws.com`),
+        ],
         actions: [
           'kms:Encrypt',
           'kms:Decrypt',
