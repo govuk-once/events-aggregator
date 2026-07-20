@@ -1,27 +1,39 @@
 # Travel Advice Notifications — Product Proposal
 
-A proposal for designers and product on how we deliver travel advice change notifications, why we made the decisions we did, and how the feature evolves incrementally.
+This document captures an evolution in our thinking about how travel advice notifications are delivered. Our original approach assumed digests (daily, weekly, ASAP) would be built into the events aggregator service. Through technical discovery and conversations with the UNS team, we've identified a simpler model that still delivers incrementally — but with different consequences for some design decisions.
 
 ---
 
-## Before
+## What changed in our thinking
 
-Today, users who want to know when travel advice changes for a country they're visiting have two options:
+Our original plan included daily and weekly digests as a first-class feature of events-aggregator. When we dug in, two things surfaced:
 
-1. **Check the GOV.UK page manually** — relies on the user remembering to look
-2. **Subscribe to email alerts via GOV.UK** — generic, not integrated with the app, no control over frequency
+1. **Weekly digests should contain multiple countries' updates in a single notification.** If you subscribe to Spain, Cyprus, and Greece, and all three change on the same day, a weekly digest should bundle those — not send three separate digest messages. This broke the contract we'd pencilled between events-aggregator and UNS, because one "notification" from us would contain many messages, and UNS's model (shared with all of government) is: one notification = one message.
 
-There is no in-app notification when travel advice changes. Users travelling to high-risk countries have no proactive way to stay informed through the app.
+2. **UNS will need to solve this problem anyway.** As more services come online (DVLA, DWP, Home Office, document mailbox), users will want to control how they receive messages from *all* sources — not just travel. Rolling up across sources, managing cadence, and reducing noise is a platform-level UNS feature, not something each source service should solve independently.
+
+Given this, we've agreed to **remove scheduling from events-aggregator** and simplify to: detect a change, fire one notification, let UNS handle everything downstream.
 
 ---
 
-## Now (what we've built)
+## Before (original approach)
 
-A service that **detects changes to GOV.UK travel advice pages as they happen** and publishes notifications to UNS, which delivers them to subscribed users.
+- Three schedules in events-aggregator: ASAP, daily, weekly
+- Digest logic built into our service
+- Topic-based publishing with frequency in the topic name
+- UNS receives pre-rolled-up messages
 
-The model is simple: **one change to a country = one notification to its subscribers.** This is the same model DVLA uses — one event, one message. No batching, no digest logic in this service.
+### Problems with this approach
 
-### How it works
+- One "digest notification" containing multiple countries' changes doesn't fit UNS's one-notification-one-message contract
+- Every other government service sending to UNS would need to solve the same rollup problem independently
+- If the user subscribes to multiple sources, they'd still get separate digests from each — not a unified experience
+
+---
+
+## Now (revised approach)
+
+Events-aggregator detects changes and fires **one notification per change per country** — the same model DVLA uses. No batching, no scheduling logic in this service.
 
 ```
 GOV.UK publishes a change to Pakistan travel advice
@@ -30,7 +42,7 @@ Events aggregator detects the change (polling every ~15 minutes)
     ↓
 Fires one notification to UNS: "Pakistan travel advice updated"
     ↓
-UNS delivers to all users subscribed to Pakistan
+UNS stores it, delivers push notification, shows in Notification Centre
 ```
 
 ### What the user sees
@@ -41,47 +53,69 @@ UNS delivers to all users subscribed to Pakistan
 
 ---
 
-## Rationale
+## Why this works (for now)
 
-### Why one notification per change, not daily/weekly digests?
+**The data shows the update cadence is low.** Over the last year across 226 countries:
 
-**Digests are a cross-source UNS problem, not a per-source one.** A user might subscribe to:
-- Travel advice for 3 countries
-- DVLA reminders
-- DWP updates
-- Home Office correspondence
+- The busiest country (Mexico) changed ~once per week
+- A user subscribed to 5 countries would get ~3 notifications per week
+- There is no realistic scenario where a typical user is overwhelmed
 
-If each source rolls up its own messages independently, the user still gets 4+ separate digests per day. The better solution is for UNS to roll up *across sources* — "You have 5 updates today" — which it can only do centrally. We send individual events; UNS decides how to present them.
+We can prove this with real data over time. If the volume becomes a problem, UNS builds the cadence/rollup feature — which it needs anyway for the broader platform. Meanwhile, we ship value now.
 
-### Why S3 for the change feed?
+### Why not keep scheduling "just in case"?
 
-The country page in the app will show a feed of recent changes (like an RSS reader). This could receive millions of requests when the app scales. S3 + CloudFront handles that without breaking a sweat — no database, no Lambda at read time, no scaling concern.
+If we build scheduling into events-aggregator, we commit to a direction that won't evolve well:
+- When UNS adds cross-source rollups, our per-source rollups become redundant or conflicting
+- We'd need to unpick the digest logic later
+- The scheduling code adds complexity for a problem that doesn't exist yet at this volume
 
-### Why not build everything at once?
-
-Each version delivers standalone user value and generates real usage data. We learn from each release before committing to the next level of complexity.
-
----
-
-## Evolutionary Benefit
-
-Each version builds on the last. Nothing gets thrown away.
-
-| Version | What's added | What we learn |
-|---------|-------------|---------------|
-| V1 | Notifications work, users engage | Do users actually want this? Open rates, subscription rates |
-| V2 | Users can preview before subscribing | Does seeing the feed increase subscription conversion? |
-| V3 | Users control their notification experience | Does cadence control reduce unsubscribes? |
-
-The technical architecture supports this evolution without rework — the polling, change detection, and notification publishing are the same in all three versions. Each version adds a layer on top.
+Better to ship the simple version, measure, and let UNS own the presentation layer.
 
 ---
 
-## Feature Roadmap
+## Consequences for design decisions
+
+| Decision | Impact |
+|----------|--------|
+| Subscribe toggle | Unchanged — on/off per country |
+| Frequency picker (daily/weekly/ASAP) | **Removed from V1** — user subscribes or doesn't |
+| Notification content | One change note per notification (not a bundled digest) |
+| Notification tap target | Opens GOV.UK web view for that country |
+| Country change feed (atom-style) | **New addition** — users can preview changes before subscribing |
+| Rollup/cadence controls | **Deferred to UNS** — will apply across all government sources |
+
+---
+
+## New addition: Country Change Feed
+
+There's a desire for the country page to show an RSS-style feed of recent changes. This serves two purposes:
+
+1. **Discovery:** users can see what kind of notifications they'd receive *before* they subscribe
+2. **Reference:** users can check what changed at any time without relying on push notifications
+
+### What this looks like
+
+When you tap a country in the list, you see a feed of editorial change notes (e.g. "Updated information about regional tensions") with dates. Each entry can link through to the GOV.UK web page where the actual detail lives.
+
+### Important context
+
+These are editorial notes entered by content teams when they make changes. They describe *what* changed but don't contain the advice itself. The value to the user is:
+- **Preview:** "Ah, this country gets updated regularly — worth subscribing to"
+- **Context:** "I got a notification yesterday — let me see what it was about"
+- **Action:** tap through to the web view for the full detail
+
+The feed on its own doesn't replace the web view. There should be a clear path (per-item link or a button at the top) to reach the actual content.
+
+### Technical requirement
+
+Events-aggregator would maintain this feed by writing a snapshot of each country's changes to S3 on each poll cycle. The app reads from S3 (via CloudFront), so it scales to millions of users without additional infrastructure.
+
+---
+
+## Evolutionary path
 
 ### V1 — Notifications (MVP, ~4 weeks)
-
-**User story:** As a traveller, I want to be notified when travel advice changes for countries I care about, so I don't have to check manually.
 
 **What ships:**
 - Subscribe toggle (on/off) per country on the country page
@@ -102,8 +136,6 @@ The technical architecture supports this evolution without rework — the pollin
 
 ### V2 — Country Change Feed
 
-**User story:** As a user considering subscribing, I want to see what kind of notifications I would receive, so I can make an informed decision.
-
 **What ships:**
 - "Recent changes" feed visible on the country page (atom-style list)
 - Each entry shows the editorial change note and date
@@ -116,26 +148,23 @@ The technical architecture supports this evolution without rework — the pollin
 - Are users satisfied with editorial change notes, or do they want more detail?
 - How often do users return to the feed vs relying on push notifications?
 
-**Important context:** The change notes are editorial summaries (e.g. "Updated information about regional tensions"). They describe *what changed* but don't contain the actual advice. The detail is always on the GOV.UK web page — the feed is a preview, not a replacement.
+**Design consideration:** The feed entries are editorial notes — they hint at what changed but don't contain the actual advice. The UI should make it obvious that tapping an entry takes you to the real content on GOV.UK.
 
 ---
 
-### V3 — Cadence and Rollups (UNS-owned)
+### V3 — Cadence and Rollups (UNS platform feature)
 
-**User story:** As a user subscribed to multiple sources, I want to control how often I'm interrupted, so I can stay informed without notification fatigue.
-
-**What ships (in UNS, not events-aggregator):**
+**What ships (owned by UNS, not events-aggregator):**
 - User can choose notification cadence: immediate, daily summary, weekly summary
 - UNS rolls up messages across sources: "You have 3 travel updates and 1 DVLA reminder"
-- Applies to all notification sources, not just travel advice
+- Applies to all notification sources, not just travel
 - Events-aggregator continues to fire individual events — UNS handles the presentation
 
-**What we learn:**
-- Does cadence control reduce unsubscribes?
-- What's the most popular cadence per source type?
-- Do bundled notifications have higher or lower open rates?
-
-**Why this is V3:** Rollups require UNS to understand message semantics across multiple government services. This is a general platform capability, not a travel-specific feature. Building it after V1/V2 means we have real usage data to inform the design.
+**Why this is V3 and why UNS owns it:**
+- As more government services come online (DVLA, DWP, Home Office, document mailbox), each will send messages to UNS
+- Users will want control over *all* their notifications, not just travel
+- Rolling up across sources is a platform capability — building it per-source duplicates effort and creates inconsistent UX
+- By the time V3 is needed, we'll have real usage data from V1/V2 to inform the design
 
 ---
 
@@ -148,3 +177,12 @@ The technical architecture supports this evolution without rework — the pollin
 | **Complexity** | Low | Medium | High |
 | **Dependency** | UNS notification delivery | S3 + Flex API integration | UNS rollup engine (multi-source) |
 | **Risk** | Low — proven model (DVLA) | Low — read-only, no new notification paths | Medium — cross-source logic, UX research needed |
+
+### The evolutionary benefit
+
+Nothing gets thrown away between versions:
+- V1's notification pipeline stays exactly the same in V2 and V3
+- V2's change feed exists independently of notifications — it's useful even without push
+- V3 is additive on top of V1 — UNS learns to bundle what we're already sending
+
+The architecture supports this because events-aggregator's job is simple and stable: **detect changes, fire notifications, maintain the feed.** Everything else — subscription management, delivery, rollups, cadence — belongs to the platform.
