@@ -2,8 +2,9 @@
   "name": "govuk-events-aggregator",
   "description": "Events aggregator for Push Notifications",
   "version": "0.1.0",
+  "type": "module",
   "bin": {
-    "service-template": "cdk/service-template.ts"
+    "events-aggregator": "cdk/events-aggregator.ts"
   },
   "engines": {
     "node": "24.12.0",
@@ -30,7 +31,7 @@
     "lint:fix": "eslint . --fix",
     "format:check": "prettier --check .",
     "format:fix": "prettier --write .",
-    "types:check": "tsc --noEmit",
+    "types:check": "tsc . --noEmit",
     "deploy:test": "cdk deploy --context environment=test --all --require-approval never",
     "deploy:dev": "cdk deploy --context environment=dev --all --require-approval never",
     "deploy:stag": "cdk deploy --context environment=stag --all --require-approval never",

@@ -113,6 +113,7 @@ describe('EventBridgeScheduleFactory', () => {
 
   it('delegates naming to the naming provider when supplied', () => {
     const namingProvider: INamingProvider = {
+      getPreFix: () => 'dev',
       getResourceName: (name) => `dev-${name}-prod`,
       getResourceId: (id) => `dev-${id}`,
     };

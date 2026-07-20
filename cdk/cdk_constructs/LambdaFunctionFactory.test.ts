@@ -8,8 +8,11 @@ import { NullNamingProvider } from './namingProviders/NullNamingProvider';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as path from 'path';
 
-vi.spyOn(lambda.Code, 'fromAsset').mockImplementation(() =>
-  lambda.Code.fromInline(`exports.hanlder = async => {};`),
+vi.spyOn(lambda.Code, 'fromAsset').mockImplementation(
+  () =>
+    lambda.Code.fromInline(
+      `exports.hanlder = async => {};`,
+    ) as unknown as lambda.AssetCode,
 );
 
 describe('lambdaFactory', () => {
