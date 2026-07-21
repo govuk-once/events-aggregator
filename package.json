@@ -19,8 +19,6 @@
     "test:cdk": "vitest run --coverage cdk --passWithNoTests",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
-    "test:bdd": "cucumber-js",
-    "test:bdd:watch": "cucumber-js --watch",
     "cdk": "cdk",
     "cdk:watch": "cdk watch",
     "cdk:diff": "cdk diff",
