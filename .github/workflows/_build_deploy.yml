@@ -1,0 +1,85 @@
+name: Build & Deploy
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        type: string
+        required: true
+        default: 'dev'
+      aws_region:
+        description: 'AWS region'
+        type: string
+        required: false
+        default: 'eu-west-2'
+    secrets:
+      DEV_DEPLOYMENT_ROLE:
+        description: 'AWS deployment role to assume'
+        required: true
+
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - development
+          - staging
+      aws_region:
+        description: 'AWS region'
+        required: false
+        default: 'eu-west-2'
+        type: string
+    secrets:
+      DEV_DEPLOYMENT_ROLE:
+        description: 'AWS deployment role to assume'
+        required: true
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+      actions: write
+      statuses: write
+    concurrency:
+      group: deploy-${{ inputs.environment }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #v5.0
+
+      - name: Get PNPM Version
+        id: pnpm-version
+        run: echo "pnpm_version=$(jq -r '.packageManager' package.json)" >> $GITHUB_OUTPUT
+
+      - name: Install pnpm
+        run: npm install -g ${{ steps.pnpm-version.outputs.pnpm_version }}
+
+      - name: setup node
+        uses: actions/setup-node@8f152de45cc393bb48ce5d89d36b731f54556e65 #v4.0
+        with:
+          node-version-file: .nvmrc
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Application
+        run: pnpm run build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@56d6a583f00f6bad6d19d91d53a7bc3b8143d0e9 # v5.1.1
+        with:
+          role-to-assume: ${{ secrets.DEV_DEPLOYMENT_ROLE }}
+          aws-region: ${{ inputs.aws_region }}
+          output-env-credentials: true
+
+      - name: Deploy to Environment
+        run: pnpm run deploy:dev

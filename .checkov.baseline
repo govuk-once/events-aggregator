@@ -1,0 +1,42 @@
+{
+    "failed_checks": [
+        {
+            "file": "/ExampleTemplateStack.template.json",
+            "findings": [
+                {
+                    "resource": "AWS::ApiGateway::Method.ServiceTemplateExampleApiANY3151833B",
+                    "check_ids": [
+                        "CKV_AWS_59"
+                    ]
+                },
+                {
+                    "resource": "AWS::ApiGateway::Method.ServiceTemplateExampleApiproxyANY16FF234F",
+                    "check_ids": [
+                        "CKV_AWS_59"
+                    ]
+                },
+                {
+                    "resource": "AWS::ApiGateway::Stage.ServiceTemplateExampleApiDeploymentStageprodE61F2A87",
+                    "check_ids": [
+                        "CKV_AWS_120",
+                        "CKV_AWS_73",
+                        "CKV_AWS_76"
+                    ]
+                },
+                {
+                    "resource": "AWS::Logs::LogGroup.ServiceTemplateExampleFunctionLogGroupE2DBA394",
+                    "check_ids": [
+                        "CKV_AWS_158"
+                    ]
+                },
+                {
+                    "resource": "AWS::S3::Bucket.ServiceTemplateExampleBucket8C2275E1",
+                    "check_ids": [
+                        "CKV_AWS_18",
+                        "CKV_AWS_21"
+                    ]
+                }
+            ]
+        }
+    ]
+}
