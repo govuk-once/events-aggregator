@@ -86,7 +86,7 @@ export class EventsAggregatorStack extends cdk.Stack {
     (['hourly', 'daily', 'weekly'] as ScheduleFrequency[]).map(
       (frequency: ScheduleFrequency) => {
         eventBridgeFactory.createScheduledRule(`${frequency}-schedule`, {
-          name: `${frequency.toUpperCase()} Travel Schedule`,
+          name: `${frequency.toUpperCase()}TravelSchedule`,
           targetFunction: lambdaFunction,
           frequency,
           enabled: true,
