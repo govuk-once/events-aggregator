@@ -157,7 +157,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #v5.0
 
       - name: Get PNPM Version
         id: pnpm-version
@@ -167,7 +167,7 @@ jobs:
         run: npm install -g ${{ steps.pnpm-version.outputs.pnpm_version }}
 
       - name: setup node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@8f152de45cc393bb48ce5d89d36b731f54556e65 #v4.0
         with:
           node-version-file: .nvmrc
           cache: 'pnpm'
@@ -185,7 +185,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #v5.0
 
       - name: Get PNPM Version
         id: pnpm-version
@@ -195,7 +195,7 @@ jobs:
         run: npm install -g ${{ steps.pnpm-version.outputs.pnpm_version }}
 
       - name: setup node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@8f152de45cc393bb48ce5d89d36b731f54556e65 #v4.0
         with:
           node-version-file: .nvmrc
           cache: 'pnpm'
@@ -204,7 +204,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Checkov GitHub Action
-        uses: bridgecrewio/checkov-action@v12
+        uses: bridgecrewio/checkov-action@99bb2caf247dfd9f03cf984373bc6043d4e32ebf #v12.1347.0
         with:
           directory: cdk.out
           config_file: .checkov.yaml

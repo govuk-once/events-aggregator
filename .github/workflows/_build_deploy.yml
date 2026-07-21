@@ -53,7 +53,7 @@ jobs:
       group: deploy-${{ inputs.environment }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #v5.0
 
       - name: Get PNPM Version
         id: pnpm-version
@@ -63,7 +63,7 @@ jobs:
         run: npm install -g ${{ steps.pnpm-version.outputs.pnpm_version }}
 
       - name: setup node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@8f152de45cc393bb48ce5d89d36b731f54556e65 #v4.0
         with:
           node-version-file: .nvmrc
           cache: 'pnpm'
