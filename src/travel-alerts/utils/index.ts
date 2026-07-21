@@ -1,0 +1,90 @@
+export type { FlexFetchRequestInit } from "./fetch";
+export { flexFetch } from "./fetch";
+export type { Sigv4FetcherOptions } from "./sigv4";
+export { createSigv4Fetcher, createSigv4FetchWithCredentials } from "./sigv4";
+export type { ApiResult } from "./typed-fetch";
+export { typedFetch } from "./typed-fetch";
+
+import { CountryResponse, NotificationPayload, ScheduleFrequency, SearchResponse } from '../types';
+
+const SEARCH_BASE = 'https://www.gov.uk/api/search.json';
+const CONTENT_API = 'https://www.gov.uk/api/content';
+const MAX_RESPONSE_BYTES = 5 * 1024 * 1024;
+
+function buildSearchUrl(fromTimestamp: string): string {
+  const params = new URLSearchParams();
+  params.set('filter_content_store_document_type', 'travel_advice');
+  params.set('filter_public_timestamp', `from:${fromTimestamp}`);
+  params.set('order', '-public_timestamp');
+  params.set('count', '300');
+  params.append('fields[]', 'link');
+  params.append('fields[]', 'title');
+  params.append('fields[]', 'public_timestamp');
+  params.append('fields[]', 'content_id');
+  return `${SEARCH_BASE}?${params.toString()}`;
+}
+
+export const getTravelChangesSince = async (
+  timestamp: string,
+): Promise<SearchResponse> => {
+  const url = buildSearchUrl(timestamp);
+
+  const response = await fetch(url);
+
+  const text = await response.text();
+  if (text.length > MAX_RESPONSE_BYTES) {
+    throw new Error(
+      `Search API response too large: ${text.length} bytes (max ${MAX_RESPONSE_BYTES})`,
+    );
+  }
+  return JSON.parse(text);
+};
+
+export const getCountryChanges = async (
+  url: string,
+): Promise<CountryResponse> => {
+  const response = await fetch(CONTENT_API + url);
+
+  const text = await response.text();
+
+  return JSON.parse(text);
+};
+
+export const getStartTime = (
+  timestamp: string,
+  schedule: ScheduleFrequency,
+): string => {
+  const date = new Date(timestamp);
+
+  switch (schedule) {
+    case 'hourly':
+      date.setUTCHours(date.getUTCHours() - 1);
+      break;
+    case 'daily':
+      date.setUTCDate(date.getUTCDate() - 1);
+      break;
+    case 'weekly':
+      date.setUTCDate(date.getUTCDate() - 7);
+      break;
+  }
+
+  return date.toISOString();
+};
+
+export const getNotificationPayload = (
+  country: CountryResponse,
+  timestamp: string,
+  schedule: ScheduleFrequency,
+): NotificationPayload => {
+  const changeCount = country.details.change_history.filter(
+    ({ public_timestamp }) => public_timestamp >= timestamp,
+  ).length;
+
+  return {
+    Subscription: `travel/${country.details.country.slug}/${schedule}`,
+    NotificationTitle: `There has been ${changeCount} travel updates for ${country.details.country.name}`,
+    NotificationBody: `There has been ${changeCount} travel updates for ${country.details.country.name}`,
+    MessageTitle: `There has been ${changeCount} travel updates for ${country.details.country.name}`,
+    MessageBody: `There has been ${changeCount} travel updates for ${country.details.country.name}`,
+  };
+};
