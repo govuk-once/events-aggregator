@@ -1,4 +1,4 @@
-import { NotificationPayload , TravelAlertScheduleEvent} from './types';
+import { NotificationPayload, TravelAlertScheduleEvent } from './types';
 import {
   getCountryChanges,
   getNotificationPayload,

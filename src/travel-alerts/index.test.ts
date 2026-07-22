@@ -1,4 +1,4 @@
-import { describe, it, beforeEach, vi, afterAll } from 'vitest';
+import { describe, it, vi, afterAll } from 'vitest';
 import { handler } from '.';
 import { getSecret } from '@aws-lambda-powertools/parameters/secrets';
 import nock from 'nock';
@@ -99,9 +99,9 @@ describe('Travel Alerts Schedule', () => {
     unsScope.done();
   });
 
-    // it('should log if no alerts are found', () => {
+  // it('should log if no alerts are found', () => {
 
-    // })
+  // })
 
   //   it('Should log if theres an error from the search api')
 
