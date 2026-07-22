@@ -75,6 +75,7 @@
     "constructs": "^10.4.3",
     "nock": "^14.0.16",
     "secrets": "link:@aws-lambda-powertools/parameters/secrets",
-    "tsx": "^4.23.1"
+    "tsx": "^4.23.1",
+    "vite-tsconfig-paths": "^6.1.1"
   }
 }
