@@ -66,6 +66,8 @@ export const handler = async (event: TravelAlertScheduleEvent) => {
         triggeredAt: event.triggeredAt,
         schedule: event.schedule,
       });
+
+      throw error;
     }
 
     logger.error({
@@ -74,6 +76,6 @@ export const handler = async (event: TravelAlertScheduleEvent) => {
       schedule: event.schedule,
     });
 
-    return false;
+    throw error;
   }
 };
