@@ -18,7 +18,7 @@ import {
   EventBridgeScheduleFactory,
   ScheduleFrequency,
 } from '../cdk_constructs/EventBridgeScheduleFactory';
-import { StringParameter } from 'aws-cdk-lib/aws-ssm';
+// import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 
 export interface EventsAggregatorStackProps extends cdk.StackProps {
   serviceName: string;
