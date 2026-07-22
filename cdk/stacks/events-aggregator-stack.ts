@@ -4,12 +4,18 @@ import * as kms from 'aws-cdk-lib/aws-kms';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as path from 'path';
+import * as events from 'aws-cdk-lib/aws-events';
 import { Construct } from 'constructs';
 import { LambdaFactory } from '../cdk_constructs/LambdaFunctionFactory';
 import {
   getResourceNamePrefix,
   isEphemeralEnvironment,
 } from '../constants/environments';
+
+import {
+  EventBridgeScheduleFactory,
+  ScheduleFrequency,
+} from '../cdk_constructs/EventBridgeScheduleFactory';
 
 export interface EventsAggregatorStackProps extends cdk.StackProps {
   serviceName: string;
@@ -32,6 +38,12 @@ export class EventsAggregatorStack extends cdk.Stack {
     cdk.Tags.of(this).add('Environment', props.environment);
 
     const lambdaFactory = new LambdaFactory(this, 'EventsAggregator');
+
+    const eventBridgeFactory = new EventBridgeScheduleFactory(
+      this,
+      'EventBridgeSchedule',
+    );
+
     const logKey = new kms.Key(this, 'LogEncryptionKey', {
       alias: `${getResourceNamePrefix()}-log-key`,
       enableKeyRotation: true,
@@ -56,19 +68,38 @@ export class EventsAggregatorStack extends cdk.Stack {
       }),
     );
 
-    lambdaFactory.createLambda('PollTravelContentLambda', {
-      code: lambda.Code.fromAsset(
-        path.join(__dirname, '../../src/travel-alerts'),
-      ),
-      description: 'Polls the content api and sends events to UNS',
-      duration: 10,
-      key: logKey,
-      handler: 'handler',
-      memorySize: 128,
-      name: 'pollTravelContent',
-      retentionDays: logs.RetentionDays.ONE_WEEK,
-      runtime: cdk.aws_lambda.Runtime.NODEJS_LATEST,
-      skipCheckovRule: 'CKV_AWS_59',
-    });
+    const lambdaFunction = lambdaFactory.createLambda(
+      'PollTravelContentLambda',
+      {
+        code: lambda.Code.fromAsset(
+          path.join(__dirname, '../../src/travel-alerts'),
+        ),
+        description: 'Polls the content api and sends events to UNS',
+        duration: 10,
+        key: logKey,
+        handler: 'handler',
+        memorySize: 128,
+        name: 'pollTravelContent',
+        retentionDays: logs.RetentionDays.ONE_WEEK,
+        runtime: cdk.aws_lambda.Runtime.NODEJS_LATEST,
+        skipCheckovRule: 'CKV_AWS_59',
+      },
+    );
+
+    (['hourly', 'daily', 'weekly'] as ScheduleFrequency[]).map(
+      (frequency: ScheduleFrequency) => {
+        eventBridgeFactory.createScheduledRule(`${frequency}-schedule`, {
+          name: `${frequency.toUpperCase()}TravelSchedule`,
+          targetFunction: lambdaFunction,
+          frequency,
+          enabled: true,
+          eventPayload: {
+            triggeredAt: events.EventField.fromPath('$.time'),
+            schedule: frequency,
+            source: events.EventField.fromPath('$.source'),
+          },
+        });
+      },
+    );
   }
 }
