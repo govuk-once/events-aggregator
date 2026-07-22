@@ -1,11 +1,11 @@
-import { NotificationPayload, TravelAlertScheduleEvent } from './types';
+import { NotificationPayload, TravelAlertScheduleEvent } from '@/types';
 import {
   getCountryChanges,
   getNotificationPayload,
   getStartTime,
   getTravelChangesSince,
-} from './utils';
-import { createUnsRemoteClient, loadConsumerConfig } from './utils/uns-client';
+} from '@/utils';
+import { createUnsRemoteClient, loadConsumerConfig } from '@/utils/uns-client';
 import { Logger } from '@aws-lambda-powertools/logger';
 
 const logger = new Logger();
@@ -22,7 +22,7 @@ export const handler = async (event: TravelAlertScheduleEvent) => {
         schedule: event.schedule,
         startTime,
       });
-      return;
+      return false;
     }
     const unsPayload: NotificationPayload[] = [];
     for (const { link } of travelChanges.results) {
@@ -45,7 +45,7 @@ export const handler = async (event: TravelAlertScheduleEvent) => {
         schedule: event.schedule,
         startTime,
       });
-      return;
+      return false;
     }
 
     const config = await loadConsumerConfig(
@@ -73,5 +73,7 @@ export const handler = async (event: TravelAlertScheduleEvent) => {
       triggeredAt: event.triggeredAt,
       schedule: event.schedule,
     });
+
+    return false;
   }
 };

@@ -3,7 +3,7 @@ import {
   NotificationPayload,
   ScheduleFrequency,
   SearchResponse,
-} from '../types';
+} from '@/types';
 
 export const SEARCH_BASE = 'https://www.gov.uk/api/search.json';
 export const CONTENT_API = 'https://www.gov.uk/api/content';

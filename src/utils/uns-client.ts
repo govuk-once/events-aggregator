@@ -6,7 +6,7 @@ import {
   ConsumerConfig,
   CredentialProvider,
   NotificationPayload,
-} from '../types';
+} from '@/types';
 import { AwsCredentialIdentity } from '@aws-sdk/types';
 
 // ---------------------------------------------------------------------------
