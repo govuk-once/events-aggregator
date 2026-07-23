@@ -1,5 +1,7 @@
 import type { AwsCredentialIdentity } from '@aws-sdk/types';
 
+export type FetchInit = RequestInit & { dispatcher?: unknown };
+
 export type ScheduleFrequency = 'hourly' | 'daily' | 'weekly';
 
 export type SearchResponseCountry = {

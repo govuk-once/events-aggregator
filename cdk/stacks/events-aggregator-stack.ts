@@ -18,7 +18,8 @@ import {
   EventBridgeScheduleFactory,
   ScheduleFrequency,
 } from '../cdk_constructs/EventBridgeScheduleFactory';
-// import { StringParameter } from 'aws-cdk-lib/aws-ssm';
+import { StringParameter } from 'aws-cdk-lib/aws-ssm';
+import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
 
 export interface EventsAggregatorStackProps extends cdk.StackProps {
   serviceName: string;
@@ -45,24 +46,11 @@ export class EventsAggregatorStack extends cdk.Stack {
     cdk.Tags.of(this).add('Environment', props.environment);
 
     const namespace = `ea-${env}`;
-    const parameterNames = {
-      certArn: `/${namespace}/uns-mtls-cert-arn`,
-      keyArn: `/${namespace}/uns-mtls-key-arn`,
-      kmsKeyArn: `/${namespace}/uns-kms-key-arn`,
-    };
-
-    const unsCertArn = StringParameter.valueForStringParameter(
-      this,
-      parameterNames.certArn,
-    );
-    const unsKeyArn = StringParameter.valueForStringParameter(
-      this,
-      parameterNames.keyArn,
-    );
-    const unsKmsKeyArn = StringParameter.valueForStringParameter(
-      this,
-      parameterNames.kmsKeyArn,
-    );
+    const params = [
+      `/${namespace}/uns-mtls-cert-arn`,
+       `/${namespace}/uns-mtls-key-arn`,
+       `/${namespace}/uns-kms-key-arn`,
+    ];
 
     const unsApiKeySecret = new secretsmanager.Secret(this, 'UnsApiKeySecret', {
       secretName: `${namespace}/uns-api-key`,
@@ -72,6 +60,14 @@ export class EventsAggregatorStack extends cdk.Stack {
         ? cdk.RemovalPolicy.DESTROY
         : cdk.RemovalPolicy.RETAIN,
     });
+    const [cert, key, kmsArn] = params.map((param: string) =>
+      StringParameter.valueFromLookup(this, param, '{}'),
+    );
+
+
+    const certSecret = Secret.fromSecretCompleteArn(this, 'ClientCert', cert);
+
+    const keySecret = Secret.fromSecretCompleteArn(this, 'ClientKey', key);
 
     const lambdaFactory = new LambdaFactory(this, 'EventsAggregator');
 
@@ -107,16 +103,20 @@ export class EventsAggregatorStack extends cdk.Stack {
     const lambdaFunction = lambdaFactory.createLambda(
       'PollTravelContentLambda',
       {
-        code: lambda.Code.fromAsset(join(__dirname, '../../src/travel-alerts')),
+        code: lambda.Code.fromAsset(
+          path.join(__dirname, '../../dist/travel-alerts'),
+        ),
         description: 'Polls the content api and sends events to UNS',
         duration: 10,
         key: logKey,
-        handler: 'handler',
+        handler: 'index.handler',
         memorySize: 128,
         name: 'pollTravelContent',
         environment: {
-          SSM_PREFIX: namespace,
           UNS_API_KEY_ARN: unsApiKeySecret.secretArn,
+          UNS_CERT_ARN: cert,
+          UNS_KEY_ARN: key,
+          UNS_API_KEY: unsApiKeySecret.secretArn,
         },
         retentionDays: logs.RetentionDays.ONE_WEEK,
         runtime: cdk.aws_lambda.Runtime.NODEJS_LATEST,
@@ -127,33 +127,13 @@ export class EventsAggregatorStack extends cdk.Stack {
     lambdaFunction.addToRolePolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
-        actions: ['ssm:GetParameter', 'ssm:GetParametersByPath'],
-        resources: [
-          `arn:aws:ssm:${this.region}:${this.account}:parameter/${namespace}/*`,
-        ],
-      }),
-    );
-
-    lambdaFunction.addToRolePolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: [
-          'secretsmanager:DescribeSecret',
-          'secretsmanager:GetSecretValue',
-        ],
-        resources: [unsCertArn, unsKeyArn],
-      }),
-    );
-
-    lambdaFunction.addToRolePolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
         actions: ['kms:Decrypt'],
-        resources: [unsKmsKeyArn],
+        resources: [kmsArn],
       }),
     );
 
-    unsApiKeySecret.grantRead(lambdaFunction);
+    certSecret.grantRead(lambdaFunction);
+    keySecret.grantRead(lambdaFunction);
 
     (['hourly', 'daily', 'weekly'] as ScheduleFrequency[]).map(
       (frequency: ScheduleFrequency) => {

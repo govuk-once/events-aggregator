@@ -6,7 +6,10 @@ import { Logger } from '@aws-lambda-powertools/logger';
 import nock from 'nock';
 import { afterEach } from 'node:test';
 
-vi.stubEnv('FLEX_UNS_CONSUMER_CONFIG_SECRET_ARN', 'arn:test');
+vi.stubEnv('UNS_API_URL', 'http://uns.api');
+vi.stubEnv('UNS_CERT_ARN', 'arn::cert');
+vi.stubEnv('UNS_KEY_ARN', 'arn:key');
+vi.stubEnv('UNS_API_KEY', 'api_key');
 
 const mockCredentialProvider = vi.hoisted(() =>
   vi.fn().mockResolvedValue({
@@ -47,13 +50,7 @@ describe('Travel Alerts Schedule', () => {
   });
 
   it('Should get all travel alerts for given time and send to uns', async () => {
-    mockGetSecret.mockResolvedValue({
-      apiUrl: 'https://test.api',
-      apiKey: 'key',
-      region: 'test',
-      privateApiUrl: 'https://api.test',
-      roleArn: 'key', // pragma: allowlist secret
-    });
+    mockGetSecret.mockResolvedValue('-----BEGIN');
 
     const scope = nock('https://www.gov.uk')
       .get('/api/search.json')
@@ -92,8 +89,8 @@ describe('Travel Alerts Schedule', () => {
         { content_type: 'application/json' },
       );
 
-    const unsScope = nock('https://api.test')
-      .post('/subscriptions/', [
+    const unsScope = nock('http://uns.api')
+      .post('/send', [
         {
           Subscription: 'travel/spain/daily',
           NotificationTitle: 'There has been 1 travel updates for Spain',

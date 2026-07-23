@@ -5,7 +5,7 @@ import {
   getStartTime,
   getTravelChangesSince,
 } from '@/utils';
-import { createUnsRemoteClient, loadConsumerConfig } from '@/utils/uns-client';
+import { createUnsMtlsClientFromSecrets } from '@/utils/uns-client';
 import { Logger } from '@aws-lambda-powertools/logger';
 
 const logger = new Logger();
@@ -48,13 +48,21 @@ export const handler = async (event: TravelAlertScheduleEvent) => {
       return false;
     }
 
-    const config = await loadConsumerConfig(
-      process.env.UNS_CONSUMER_CONFIG_SECRET_ARN as string,
-    );
-    const uns = createUnsRemoteClient(config);
+    const uns = await createUnsMtlsClientFromSecrets({
+      apiUrl: process.env.UNS_API_URL as string,
+      certSecretArn: process.env.UNS_CERT_ARN as string,
+      keySecretArn: process.env.UNS_KEY_ARN as string,
+      apiKey: process.env.UNS_API_KEY,
+    });
 
-    const result = await uns.subscription.sendToSubscribers(unsPayload);
+    const result = await uns.notification.sendToSubscribers(unsPayload);
     if (!result.ok) {
+      logger.error({
+        message: `Error from uns api`,
+        result: result,
+        triggeredAt: event.triggeredAt,
+        schedule: event.schedule,
+      });
       throw new Error('UNS error');
     }
 
