@@ -91,9 +91,9 @@ export const getNotificationPayload = (
 
   return {
     Subscription: `travel/${country.details.country.slug}/${schedule}`,
-    NotificationTitle: `There has been ${changeCount} travel updates for ${country.details.country.name}`,
-    NotificationBody: `There has been ${changeCount} travel updates for ${country.details.country.name}`,
-    MessageTitle: `There has been ${changeCount} travel updates for ${country.details.country.name}`,
-    MessageBody: `There has been ${changeCount} travel updates for ${country.details.country.name}`,
+    NotificationTitle: `Travel Advice - ${country.details.country.name}`,
+    NotificationBody: `There's been a change in country you are interested in`,
+    MessageTitle: `${country.details.country.name} Travel Advice`,
+    MessageBody: `Changes made :\n\n${country.details.change_history[0].note}\n\n \n \n \n\nTime updated :\n${country.details.change_history[0].public_timestamp}\n\n\n`,
   };
 };
