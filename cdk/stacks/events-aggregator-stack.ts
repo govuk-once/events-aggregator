@@ -110,9 +110,7 @@ export class EventsAggregatorStack extends cdk.Stack {
     const lambdaFunction = lambdaFactory.createLambda(
       'PollTravelContentLambda',
       {
-        code: lambda.Code.fromAsset(
-          join(__dirname, '../../src/travel-alerts'),
-        ),
+        code: lambda.Code.fromAsset(join(__dirname, '../../src/travel-alerts')),
         description: 'Polls the content api and sends events to UNS',
         duration: 10,
         key: logKey,
