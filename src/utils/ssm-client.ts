@@ -1,7 +1,4 @@
-import {
-  GetParametersByPathCommand,
-  SSMClient,
-} from '@aws-sdk/client-ssm';
+import { GetParametersByPathCommand, SSMClient } from '@aws-sdk/client-ssm';
 import { Logger } from '@aws-lambda-powertools/logger';
 
 import { InMemoryTTLCache } from './inMemoryTTLCache.js';
@@ -22,8 +19,7 @@ const logger = new Logger({
 
 const ssmClient = new SSMClient({});
 
-const cache =
-  new InMemoryTTLCache<string, string>(TTL_MS);
+const cache = new InMemoryTTLCache<string, string>(TTL_MS);
 
 let refreshPromise: Promise<void> | null = null;
 
@@ -31,9 +27,7 @@ function getSsmPrefix(): string {
   const prefix = process.env.SSM_PREFIX;
 
   if (!prefix) {
-    throw new Error(
-      'SSM_PREFIX environment variable is not set',
-    );
+    throw new Error('SSM_PREFIX environment variable is not set');
   }
 
   return prefix.replace(/^\/+|\/+$/g, '');
@@ -60,14 +54,8 @@ const refreshCache = async (): Promise<void> => {
     );
 
     for (const parameter of result.Parameters ?? []) {
-      if (
-        parameter.Name &&
-        parameter.Value !== undefined
-      ) {
-        cache.set(
-          parameter.Name,
-          parameter.Value,
-        );
+      if (parameter.Name && parameter.Value !== undefined) {
+        cache.set(parameter.Name, parameter.Value);
       }
     }
 
@@ -81,23 +69,19 @@ async function ensureCacheIsRefreshed(): Promise<void> {
       () => {
         refreshPromise = null;
       },
-      error => {
+      (error) => {
         refreshPromise = null;
         throw error;
       },
     );
   } else {
-    logger.info(
-      'Waiting for in-progress SSM cache refresh',
-    );
+    logger.info('Waiting for in-progress SSM cache refresh');
   }
 
   await refreshPromise;
 }
 
-export const getParameter = async (
-  key: SsmParameterKey,
-): Promise<string> => {
+export const getParameter = async (key: SsmParameterKey): Promise<string> => {
   const prefix = getSsmPrefix();
   const fullKey = `/${prefix}/${key}`;
 
@@ -108,9 +92,7 @@ export const getParameter = async (
   const value = cache.get(fullKey);
 
   if (value === undefined) {
-    throw new Error(
-      `SSM parameter not found: ${fullKey}`,
-    );
+    throw new Error(`SSM parameter not found: ${fullKey}`);
   }
 
   logger.debug('Retrieved SSM parameter', {

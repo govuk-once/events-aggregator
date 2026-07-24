@@ -21,9 +21,9 @@
     "skipLibCheck": true,
     "outDir": "dist",
     "esModuleInterop": true,
-    "typeRoots": ["./node_modules/@types"],
+    "typeRoots": ["./node_modules/@types", "./node_modules"],
     "resolveJsonModule": true,
-    "types": ["node"]
+    "types": ["node", "vitest/globals"]
   },
   "include": ["src/**/*.ts"],
   "exclude": ["cdk.out", "node_modules"]

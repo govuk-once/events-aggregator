@@ -6,7 +6,9 @@ import {
 } from '@aws-sdk/client-ssm';
 import { getEnvironment, serviceMetadata } from './constants/environments.js';
 
-const unwrap = async <Result>(promise: Promise<Result>): Promise<[Result, undefined] | [undefined, Error]> => {
+const unwrap = async <Result>(
+  promise: Promise<Result>,
+): Promise<[Result, undefined] | [undefined, Error]> => {
   try {
     return [await promise, undefined];
   } catch (error) {
@@ -19,7 +21,7 @@ const namespace = `ea-${env}`;
 
 export const configurableParameters: Record<string, string> = {
   'govuk-feed-url': 'https://www.gov.uk/api/search.json',
-  'supported-countries': '[]', 
+  'supported-countries': '[]',
   'uns-api-key': 'uns-api-key',
   'uns-api-url': 'uns-api-url',
 };

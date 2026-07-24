@@ -45,11 +45,11 @@ export class EventsAggregatorStack extends cdk.Stack {
     const ssmNamespace = `ea-${env}`;
     const ssmParameterPathPrefix = `/${ssmNamespace}/*`;
 
-    const unsApiKey = ssm.StringParameter.valueFromLookup(
+    const unsApiKey = ssm.StringParameter.valueForStringParameter(
       this,
       `/${ssmNamespace}/uns-api-key`,
     );
-    const unsApiUrl = ssm.StringParameter.valueFromLookup(
+    const unsApiUrl = ssm.StringParameter.valueForStringParameter(
       this,
       `/${ssmNamespace}/uns-api-url`,
     );
@@ -144,7 +144,6 @@ export class EventsAggregatorStack extends cdk.Stack {
 
     mtlsCertSecret.grantRead(lambdaFunction);
     mtlsKeySecret.grantRead(lambdaFunction);
-
 
     (['hourly', 'daily', 'weekly'] as ScheduleFrequency[]).map(
       (frequency: ScheduleFrequency) => {
