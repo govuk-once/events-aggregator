@@ -84,7 +84,6 @@ jobs:
       - name: Pre-deploy SSM parameter setup
         run: pnpm run cdk:predeploy
         env:
-          ENVIRONMENT: ${{ inputs.environment }}
           SSM_PARAMETERS_TO_UPDATE: ${{ vars.SSM_PARAMETERS_TO_UPDATE }}
 
       - name: Deploy to Environment
