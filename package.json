@@ -24,6 +24,7 @@
     "cdk": "cdk",
     "cdk:watch": "cdk watch",
     "cdk:diff": "cdk diff",
+    "cdk:predeploy": "tsx cdk/cdk.predeploy.ssm.ts",
     "cdk:deploy": "cdk deploy --require-approval never",
     "cdk:destroy": "cdk destroy",
     "lint:check": "eslint .",
@@ -62,6 +63,12 @@
     "vitest": "^4.0.15"
   },
   "dependencies": {
+    "@aws-lambda-powertools/logger": "^2.34.0",
+    "@aws-lambda-powertools/parameters": "^2.34.0",
+    "@aws-sdk/client-secrets-manager": "^3.1093.0",
+    "@aws-sdk/client-ssm": "^3.1093.0",
+    "@aws-sdk/credential-providers": "^3.1092.0",
+    "@aws-sdk/types": "^3.974.2",
     "aws-cdk-lib": "2.215.0",
     "constructs": "^10.4.3",
     "tsx": "^4.23.1"
