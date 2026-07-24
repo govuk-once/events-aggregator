@@ -43,13 +43,13 @@ export class EventsAggregatorStack extends cdk.Stack {
     cdk.Tags.of(this).add('CostCenter', props.costCenter);
     cdk.Tags.of(this).add('Environment', props.environment);
 
-    const ssmNamespace = `ea-${env}`;
+    const namespace = `ea-${env}`;
 
     const mtlsCertSecret = new secretsmanager.Secret(
       this,
       'UnsMtlsCertSecret',
       {
-        secretName: `${namePrefix}/uns-mtls-cert`,
+        secretName: `${namespace}/uns-mtls-cert`,
         description: 'UNS mTLS client certificate (PEM)',
         secretStringValue: cdk.SecretValue.unsafePlainText('PLACEHOLDER'),
         removalPolicy: isEphemeralEnvironment()
@@ -59,7 +59,7 @@ export class EventsAggregatorStack extends cdk.Stack {
     );
 
     const mtlsKeySecret = new secretsmanager.Secret(this, 'UnsMtlsKeySecret', {
-      secretName: `${namePrefix}/uns-mtls-key`,
+      secretName: `${namespace}/uns-mtls-key`,
       description: 'UNS mTLS client private key (PEM)',
       secretStringValue: cdk.SecretValue.unsafePlainText('PLACEHOLDER'),
       removalPolicy: isEphemeralEnvironment()
@@ -68,7 +68,7 @@ export class EventsAggregatorStack extends cdk.Stack {
     });
 
     const unsApiKeySecret = new secretsmanager.Secret(this, 'UnsApiKeySecret', {
-      secretName: `${namePrefix}/uns-api-key`,
+      secretName: `${namespace}/uns-api-key`,
       description: 'UNS API key',
       secretStringValue: cdk.SecretValue.unsafePlainText('PLACEHOLDER'),
       removalPolicy: isEphemeralEnvironment()
@@ -118,7 +118,7 @@ export class EventsAggregatorStack extends cdk.Stack {
         memorySize: 128,
         name: 'pollTravelContent',
         environment: {
-          SSM_PREFIX: ssmNamespace,
+          SSM_PREFIX: namespace,
           UNS_CERT_ARN: mtlsCertSecret.secretArn,
           UNS_KEY_ARN: mtlsKeySecret.secretArn,
           UNS_API_KEY_ARN: unsApiKeySecret.secretArn,
@@ -134,7 +134,7 @@ export class EventsAggregatorStack extends cdk.Stack {
         effect: iam.Effect.ALLOW,
         actions: ['ssm:GetParameter', 'ssm:GetParametersByPath'],
         resources: [
-          `arn:aws:ssm:${this.region}:${this.account}:parameter/${ssmNamespace}/*`,
+          `arn:aws:ssm:${this.region}:${this.account}:parameter/${namespace}/*`,
         ],
       }),
     );
