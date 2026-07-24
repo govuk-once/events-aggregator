@@ -2,6 +2,7 @@
   "name": "govuk-events-aggregator",
   "description": "Events aggregator for Push Notifications",
   "version": "0.1.0",
+  "type": "module",
   "bin": {
     "events-aggregator": "cdk/events-aggregator.ts"
   },
