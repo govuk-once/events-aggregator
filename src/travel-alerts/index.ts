@@ -1,4 +1,4 @@
-import { ScheduleFrequency } from './types';
+import { ScheduleFrequency } from './types.js';
 
 export const handler = (event: {
   triggeredAt: string;

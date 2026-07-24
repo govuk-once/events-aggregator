@@ -1,4 +1,4 @@
-import { InMemoryTTLCache } from './inMemoryTTLCache';
+import { InMemoryTTLCache } from './inMemoryTTLCache.js';
 
 describe('InMemoryTTLCache', () => {
   let instance: InMemoryTTLCache<string, string>;

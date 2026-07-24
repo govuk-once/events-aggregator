@@ -4,7 +4,8 @@ import * as kms from 'aws-cdk-lib/aws-kms';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
-import * as path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import * as events from 'aws-cdk-lib/aws-events';
 import { Construct } from 'constructs';
 import { LambdaFactory } from '../cdk_constructs/LambdaFunctionFactory';
@@ -33,6 +34,7 @@ export class EventsAggregatorStack extends cdk.Stack {
 
     const env = getEnvironment();
     const namePrefix = getResourceNamePrefix();
+    const __dirname = dirname(fileURLToPath(import.meta.url));
 
     cdk.Tags.of(this).add('ServiceName', props.serviceName);
     cdk.Tags.of(this).add('TeamName', props.teamName);
@@ -109,12 +111,12 @@ export class EventsAggregatorStack extends cdk.Stack {
       'PollTravelContentLambda',
       {
         code: lambda.Code.fromAsset(
-          path.join(__dirname, '../../src/travel-alerts'),
+          join(__dirname, '../../dist/travel-alerts'),
         ),
         description: 'Polls the content api and sends events to UNS',
         duration: 10,
         key: logKey,
-        handler: 'handler',
+        handler: 'index.handler',
         memorySize: 128,
         name: 'pollTravelContent',
         environment: {
