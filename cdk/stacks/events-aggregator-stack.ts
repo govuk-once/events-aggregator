@@ -114,7 +114,7 @@ export class EventsAggregatorStack extends cdk.Stack {
         description: 'Polls the content api and sends events to UNS',
         duration: 10,
         key: logKey,
-        handler: 'handler',
+        handler: 'index.handler',
         memorySize: 128,
         name: 'pollTravelContent',
         environment: {
