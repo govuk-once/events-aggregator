@@ -111,12 +111,12 @@ export class EventsAggregatorStack extends cdk.Stack {
       'PollTravelContentLambda',
       {
         code: lambda.Code.fromAsset(
-          join(__dirname, '../../dist/travel-alerts'),
+          join(__dirname, '../../src/travel-alerts'),
         ),
         description: 'Polls the content api and sends events to UNS',
         duration: 10,
         key: logKey,
-        handler: 'index.handler',
+        handler: 'handler',
         memorySize: 128,
         name: 'pollTravelContent',
         environment: {
