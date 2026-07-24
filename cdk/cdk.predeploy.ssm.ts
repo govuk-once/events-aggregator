@@ -21,7 +21,10 @@ const namespace = `ea-${env}`;
 
 export const configurableParameters: Record<string, string> = {
   'govuk-feed-url': 'https://www.gov.uk/api/search.json',
-  'uns-api-url': 'uns-api-url',
+  'uns-mtls-cert-arn': 'uns-mtls-cert-arn-placeholder',
+  'uns-mtls-key-arn': 'uns-mtls-key-arn-placeholder',
+  'uns-api-url': 'uns-api-url-placeholder',
+  'uns-kms-key-arn': 'uns-kms-key-arn-placeholder'
 };
 
 export const parametersForDeletion: string[] = [];

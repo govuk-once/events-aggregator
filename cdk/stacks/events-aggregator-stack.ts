@@ -18,6 +18,7 @@ import {
   EventBridgeScheduleFactory,
   ScheduleFrequency,
 } from '../cdk_constructs/EventBridgeScheduleFactory';
+import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 
 export interface EventsAggregatorStackProps extends cdk.StackProps {
   serviceName: string;
@@ -43,29 +44,18 @@ export class EventsAggregatorStack extends cdk.Stack {
     cdk.Tags.of(this).add('CostCenter', props.costCenter);
     cdk.Tags.of(this).add('Environment', props.environment);
 
-    const namespace = `ea-${env}`;
+    const namespace = `ea-${env}`; 
+    const parameterNames = {
+      certArn: `/${namespace}/uns-mtls-cert-arn`,
+      keyArn: `/${namespace}/uns-mtls-key-arn`,
+      apiUrl: `/${namespace}/uns-api-url`,
+      kmsKeyArn: `/${namespace}/uns-kms-key-arn`,
+    };
 
-    const mtlsCertSecret = new secretsmanager.Secret(
-      this,
-      'UnsMtlsCertSecret',
-      {
-        secretName: `${namespace}/uns-mtls-cert`,
-        description: 'UNS mTLS client certificate (PEM)',
-        secretStringValue: cdk.SecretValue.unsafePlainText('PLACEHOLDER'),
-        removalPolicy: isEphemeralEnvironment()
-          ? cdk.RemovalPolicy.DESTROY
-          : cdk.RemovalPolicy.RETAIN,
-      },
-    );
-
-    const mtlsKeySecret = new secretsmanager.Secret(this, 'UnsMtlsKeySecret', {
-      secretName: `${namespace}/uns-mtls-key`,
-      description: 'UNS mTLS client private key (PEM)',
-      secretStringValue: cdk.SecretValue.unsafePlainText('PLACEHOLDER'),
-      removalPolicy: isEphemeralEnvironment()
-        ? cdk.RemovalPolicy.DESTROY
-        : cdk.RemovalPolicy.RETAIN,
-    });
+    const unsCertArn = StringParameter.valueForStringParameter(this, parameterNames.certArn);
+    const unsKeyArn = StringParameter.valueForStringParameter(this, parameterNames.keyArn);
+    const unsApiUrl = StringParameter.valueForStringParameter(this, parameterNames.apiUrl);
+    const unsKmsKeyArn = StringParameter.valueForStringParameter(this, parameterNames.kmsKeyArn);
 
     const unsApiKeySecret = new secretsmanager.Secret(this, 'UnsApiKeySecret', {
       secretName: `${namespace}/uns-api-key`,
@@ -119,8 +109,9 @@ export class EventsAggregatorStack extends cdk.Stack {
         name: 'pollTravelContent',
         environment: {
           SSM_PREFIX: namespace,
-          UNS_CERT_ARN: mtlsCertSecret.secretArn,
-          UNS_KEY_ARN: mtlsKeySecret.secretArn,
+          UNS_CERT_ARN: unsCertArn,
+          UNS_KEY_ARN: unsKeyArn,
+          UNS_API_URL: unsApiUrl,
           UNS_API_KEY_ARN: unsApiKeySecret.secretArn,
         },
         retentionDays: logs.RetentionDays.ONE_WEEK,
@@ -139,8 +130,23 @@ export class EventsAggregatorStack extends cdk.Stack {
       }),
     );
 
-    mtlsCertSecret.grantRead(lambdaFunction);
-    mtlsKeySecret.grantRead(lambdaFunction);
+    lambdaFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'secretsmanager:DescribeSecret', 'secretsmanager:GetSecretValue'],
+          resources: [unsCertArn, unsKeyArn],
+      }),
+    );
+
+    lambdaFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['kms:Decrypt'],
+        resources: [unsKmsKeyArn],
+      }),
+    );
+
     unsApiKeySecret.grantRead(lambdaFunction);
 
     (['hourly', 'daily', 'weekly'] as ScheduleFrequency[]).map(
