@@ -5,7 +5,7 @@ import { InMemoryTTLCache } from './inMemoryTTLCache.js';
 
 export const SsmParameters = {
   GovukFeedUrl: 'govuk-feed-url',
-  SupportedCountries: 'supported-countries',
+  UnsApiUrl: 'uns-api-url',
 } as const;
 
 export type SsmParameterKey =

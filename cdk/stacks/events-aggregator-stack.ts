@@ -3,7 +3,6 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
-import * as ssm from 'aws-cdk-lib/aws-ssm';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as path from 'path';
 import * as events from 'aws-cdk-lib/aws-events';
@@ -43,16 +42,6 @@ export class EventsAggregatorStack extends cdk.Stack {
     cdk.Tags.of(this).add('Environment', props.environment);
 
     const ssmNamespace = `ea-${env}`;
-    const ssmParameterPathPrefix = `/${ssmNamespace}/*`;
-
-    const unsApiKey = ssm.StringParameter.valueForStringParameter(
-      this,
-      `/${ssmNamespace}/uns-api-key`,
-    );
-    const unsApiUrl = ssm.StringParameter.valueForStringParameter(
-      this,
-      `/${ssmNamespace}/uns-api-url`,
-    );
 
     const mtlsCertSecret = new secretsmanager.Secret(
       this,
@@ -70,6 +59,15 @@ export class EventsAggregatorStack extends cdk.Stack {
     const mtlsKeySecret = new secretsmanager.Secret(this, 'UnsMtlsKeySecret', {
       secretName: `${namePrefix}/uns-mtls-key`,
       description: 'UNS mTLS client private key (PEM)',
+      secretStringValue: cdk.SecretValue.unsafePlainText('PLACEHOLDER'),
+      removalPolicy: isEphemeralEnvironment()
+        ? cdk.RemovalPolicy.DESTROY
+        : cdk.RemovalPolicy.RETAIN,
+    });
+
+    const unsApiKeySecret = new secretsmanager.Secret(this, 'UnsApiKeySecret', {
+      secretName: `${namePrefix}/uns-api-key`,
+      description: 'UNS API key',
       secretStringValue: cdk.SecretValue.unsafePlainText('PLACEHOLDER'),
       removalPolicy: isEphemeralEnvironment()
         ? cdk.RemovalPolicy.DESTROY
@@ -111,20 +109,19 @@ export class EventsAggregatorStack extends cdk.Stack {
       'PollTravelContentLambda',
       {
         code: lambda.Code.fromAsset(
-          path.join(__dirname, '../../dist/travel-alerts'),
+          path.join(__dirname, '../../src/travel-alerts'),
         ),
-        description: 'Polls the GOV.UK content API and sends events to UNS',
+        description: 'Polls the content api and sends events to UNS',
         duration: 10,
         key: logKey,
-        handler: 'index.handler',
+        handler: 'handler',
         memorySize: 128,
         name: 'pollTravelContent',
         environment: {
           SSM_PREFIX: ssmNamespace,
           UNS_CERT_ARN: mtlsCertSecret.secretArn,
           UNS_KEY_ARN: mtlsKeySecret.secretArn,
-          UNS_API_KEY: unsApiKey,
-          UNS_API_URL: unsApiUrl,
+          UNS_API_KEY_ARN: unsApiKeySecret.secretArn,
         },
         retentionDays: logs.RetentionDays.ONE_WEEK,
         runtime: cdk.aws_lambda.Runtime.NODEJS_LATEST,
@@ -137,13 +134,14 @@ export class EventsAggregatorStack extends cdk.Stack {
         effect: iam.Effect.ALLOW,
         actions: ['ssm:GetParameter', 'ssm:GetParametersByPath'],
         resources: [
-          `arn:aws:ssm:${this.region}:${this.account}:parameter${ssmParameterPathPrefix}`,
+          `arn:aws:ssm:${this.region}:${this.account}:parameter/${ssmNamespace}/*`,
         ],
       }),
     );
 
     mtlsCertSecret.grantRead(lambdaFunction);
     mtlsKeySecret.grantRead(lambdaFunction);
+    unsApiKeySecret.grantRead(lambdaFunction);
 
     (['hourly', 'daily', 'weekly'] as ScheduleFrequency[]).map(
       (frequency: ScheduleFrequency) => {

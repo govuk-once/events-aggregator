@@ -21,8 +21,6 @@ const namespace = `ea-${env}`;
 
 export const configurableParameters: Record<string, string> = {
   'govuk-feed-url': 'https://www.gov.uk/api/search.json',
-  'supported-countries': '[]',
-  'uns-api-key': 'uns-api-key',
   'uns-api-url': 'uns-api-url',
 };
 
