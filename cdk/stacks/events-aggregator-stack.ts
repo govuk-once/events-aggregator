@@ -44,7 +44,7 @@ export class EventsAggregatorStack extends cdk.Stack {
     cdk.Tags.of(this).add('CostCenter', props.costCenter);
     cdk.Tags.of(this).add('Environment', props.environment);
 
-    const namespace = `ea-${env}`; 
+    const namespace = `ea-${env}`;
     const parameterNames = {
       certArn: `/${namespace}/uns-mtls-cert-arn`,
       keyArn: `/${namespace}/uns-mtls-key-arn`,
@@ -52,10 +52,22 @@ export class EventsAggregatorStack extends cdk.Stack {
       kmsKeyArn: `/${namespace}/uns-kms-key-arn`,
     };
 
-    const unsCertArn = StringParameter.valueForStringParameter(this, parameterNames.certArn);
-    const unsKeyArn = StringParameter.valueForStringParameter(this, parameterNames.keyArn);
-    const unsApiUrl = StringParameter.valueForStringParameter(this, parameterNames.apiUrl);
-    const unsKmsKeyArn = StringParameter.valueForStringParameter(this, parameterNames.kmsKeyArn);
+    const unsCertArn = StringParameter.valueForStringParameter(
+      this,
+      parameterNames.certArn,
+    );
+    const unsKeyArn = StringParameter.valueForStringParameter(
+      this,
+      parameterNames.keyArn,
+    );
+    const unsApiUrl = StringParameter.valueForStringParameter(
+      this,
+      parameterNames.apiUrl,
+    );
+    const unsKmsKeyArn = StringParameter.valueForStringParameter(
+      this,
+      parameterNames.kmsKeyArn,
+    );
 
     const unsApiKeySecret = new secretsmanager.Secret(this, 'UnsApiKeySecret', {
       secretName: `${namespace}/uns-api-key`,
@@ -104,7 +116,7 @@ export class EventsAggregatorStack extends cdk.Stack {
         description: 'Polls the content api and sends events to UNS',
         duration: 10,
         key: logKey,
-        handler: 'index.handler',
+        handler: 'handler',
         memorySize: 128,
         name: 'pollTravelContent',
         environment: {
@@ -134,8 +146,10 @@ export class EventsAggregatorStack extends cdk.Stack {
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         actions: [
-          'secretsmanager:DescribeSecret', 'secretsmanager:GetSecretValue'],
-          resources: [unsCertArn, unsKeyArn],
+          'secretsmanager:DescribeSecret',
+          'secretsmanager:GetSecretValue',
+        ],
+        resources: [unsCertArn, unsKeyArn],
       }),
     );
 

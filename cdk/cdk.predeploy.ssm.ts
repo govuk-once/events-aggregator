@@ -24,7 +24,7 @@ export const configurableParameters: Record<string, string> = {
   'uns-mtls-cert-arn': 'uns-mtls-cert-arn-placeholder',
   'uns-mtls-key-arn': 'uns-mtls-key-arn-placeholder',
   'uns-api-url': 'uns-api-url-placeholder',
-  'uns-kms-key-arn': 'uns-kms-key-arn-placeholder'
+  'uns-kms-key-arn': 'uns-kms-key-arn-placeholder',
 };
 
 export const parametersForDeletion: string[] = [];
