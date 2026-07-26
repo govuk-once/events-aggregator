@@ -1,11 +1,13 @@
 import { GetParametersByPathCommand, SSMClient } from '@aws-sdk/client-ssm';
 import { Logger } from '@aws-lambda-powertools/logger';
 
-import { InMemoryTTLCache } from './inMemoryTTLCache.js';
+import { InMemoryTTLCache } from './in-memory-ttl-cache.js';
 
 export const SsmParameters = {
   GovukFeedUrl: 'govuk-feed-url',
   UnsApiUrl: 'uns-api-url',
+  UnsMtlsCertArn: 'uns-mtls-cert-arn',
+  UnsMtlsKeyArn: 'uns-mtls-key-arn',
 } as const;
 
 export type SsmParameterKey =

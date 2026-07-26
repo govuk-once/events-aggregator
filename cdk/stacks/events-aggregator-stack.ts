@@ -48,7 +48,6 @@ export class EventsAggregatorStack extends cdk.Stack {
     const parameterNames = {
       certArn: `/${namespace}/uns-mtls-cert-arn`,
       keyArn: `/${namespace}/uns-mtls-key-arn`,
-      apiUrl: `/${namespace}/uns-api-url`,
       kmsKeyArn: `/${namespace}/uns-kms-key-arn`,
     };
 
@@ -59,10 +58,6 @@ export class EventsAggregatorStack extends cdk.Stack {
     const unsKeyArn = StringParameter.valueForStringParameter(
       this,
       parameterNames.keyArn,
-    );
-    const unsApiUrl = StringParameter.valueForStringParameter(
-      this,
-      parameterNames.apiUrl,
     );
     const unsKmsKeyArn = StringParameter.valueForStringParameter(
       this,
@@ -121,9 +116,6 @@ export class EventsAggregatorStack extends cdk.Stack {
         name: 'pollTravelContent',
         environment: {
           SSM_PREFIX: namespace,
-          UNS_CERT_ARN: unsCertArn,
-          UNS_KEY_ARN: unsKeyArn,
-          UNS_API_URL: unsApiUrl,
           UNS_API_KEY_ARN: unsApiKeySecret.secretArn,
         },
         retentionDays: logs.RetentionDays.ONE_WEEK,
