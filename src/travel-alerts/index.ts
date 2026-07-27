@@ -51,13 +51,14 @@ export const handler = async (event: TravelAlertScheduleEvent) => {
       return false;
     }
 
-    const [apiUrl, certSecretArn, keySecretArn] = await Promise.all([
-      getParameter(SsmParameters.UnsApiUrl),
-      getParameter(SsmParameters.UnsMtlsCertArn),
-      getParameter(SsmParameters.UnsMtlsKeyArn),
-    ]);
+    const [apiUrl, certSecretArn, keySecretArn, apiKeySecretArn] =
+      await Promise.all([
+        getParameter(SsmParameters.UnsApiUrl),
+        getParameter(SsmParameters.UnsMtlsCertArn),
+        getParameter(SsmParameters.UnsMtlsKeyArn),
+        getParameter(SsmParameters.UnsApiKey),
+      ]);
 
-    const apiKeySecretArn = process.env.UNS_API_KEY_ARN as string;
     const apiKey = await getSecret<string>(apiKeySecretArn);
 
     const uns = await createUnsMtlsClientFromSecrets({

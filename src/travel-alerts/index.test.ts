@@ -75,6 +75,10 @@ describe('Travel Alerts Schedule', () => {
           Value: 'http://uns.api',
         },
         {
+          Name: '/prefix/uns-api-key',
+          Value: 'api_key',
+        },
+        {
           Name: '/prefix/uns-mtls-cert-arn',
           Value: 'arn::cert',
         },
