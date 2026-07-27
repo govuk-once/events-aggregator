@@ -67,8 +67,6 @@ const createAgent = (config: MtlsClientConfig): Agent =>
     connect: {
       cert: config.clientCert,
       key: config.clientKey,
-      ...(config.keyPassphrase ? { passphrase: config.keyPassphrase } : {}),
-      ...(config.caCert ? { ca: config.caCert } : {}),
       timeout: CONNECT_TIMEOUT_MS,
     },
   });
