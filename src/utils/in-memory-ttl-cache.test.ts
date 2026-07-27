@@ -1,4 +1,5 @@
 import { InMemoryTTLCache } from './in-memory-ttl-cache.js';
+import { vi, describe, beforeEach, it, expect } from 'vitest';
 
 describe('InMemoryTTLCache', () => {
   let instance: InMemoryTTLCache<string, string>;
