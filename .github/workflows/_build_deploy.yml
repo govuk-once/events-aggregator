@@ -81,5 +81,10 @@ jobs:
           aws-region: ${{ inputs.aws_region }}
           output-env-credentials: true
 
+      - name: Pre-deploy SSM parameter setup
+        run: pnpm run cdk:predeploy
+        env:
+          SSM_PARAMETERS_TO_UPDATE: ${{ vars.SSM_PARAMETERS_TO_UPDATE }}
+
       - name: Deploy to Environment
         run: pnpm run deploy:dev
