@@ -1,5 +1,6 @@
 import { FetchInit, NotificationPayload } from '@/types';
 import { getSecret } from '@aws-lambda-powertools/parameters/secrets';
+import { createHash } from 'crypto';
 import { Agent } from 'undici';
 
 // ---------------------------------------------------------------------------
@@ -58,8 +59,15 @@ const CONNECT_TIMEOUT_MS = 10_000;
 
 const agentCache = new Map<string, Agent>();
 
-const cacheKey = (config: MtlsClientConfig): string =>
-  `${config.apiUrl}|${config.clientCert}`;
+const cacheKey = (config: MtlsClientConfig): string => {
+  const fingerprint = createHash('sha265')
+    .update(config.clientCert)
+    .update('|')
+    .update(config.clientKey)
+    .digest('hex');
+
+  return `${config.apiUrl}|${fingerprint}`;
+};
 
 const createAgent = (config: MtlsClientConfig): Agent =>
   new Agent({
