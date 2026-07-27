@@ -3,7 +3,6 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import * as events from 'aws-cdk-lib/aws-events';
@@ -48,22 +47,15 @@ export class EventsAggregatorStack extends cdk.Stack {
     const namespace = `ea-${env}`;
     const params = [
       `/${namespace}/uns-mtls-cert-arn`,
-       `/${namespace}/uns-mtls-key-arn`,
-       `/${namespace}/uns-kms-key-arn`,
+      `/${namespace}/uns-mtls-key-arn`,
+      `/${namespace}/uns-kms-key-arn`,
+      `/${namespace}/uns-api-key`,
+      `/${namespace}/uns-api-url`,
     ];
 
-    const unsApiKeySecret = new secretsmanager.Secret(this, 'UnsApiKeySecret', {
-      secretName: `${namespace}/uns-api-key`,
-      description: 'UNS API key',
-      secretStringValue: cdk.SecretValue.unsafePlainText('PLACEHOLDER'),
-      removalPolicy: isEphemeralEnvironment()
-        ? cdk.RemovalPolicy.DESTROY
-        : cdk.RemovalPolicy.RETAIN,
-    });
-    const [cert, key, kmsArn] = params.map((param: string) =>
+    const [cert, key, kmsArn, apiKey, apiUrl] = params.map((param: string) =>
       StringParameter.valueFromLookup(this, param, '{}'),
     );
-
 
     const certSecret = Secret.fromSecretCompleteArn(this, 'ClientCert', cert);
 
@@ -104,7 +96,7 @@ export class EventsAggregatorStack extends cdk.Stack {
       'PollTravelContentLambda',
       {
         code: lambda.Code.fromAsset(
-          path.join(__dirname, '../../dist/travel-alerts'),
+          join(__dirname, '../../dist/travel-alerts'),
         ),
         description: 'Polls the content api and sends events to UNS',
         duration: 10,
@@ -113,10 +105,10 @@ export class EventsAggregatorStack extends cdk.Stack {
         memorySize: 128,
         name: 'pollTravelContent',
         environment: {
-          UNS_API_KEY_ARN: unsApiKeySecret.secretArn,
+          UNS_API_URL: apiUrl,
           UNS_CERT_ARN: cert,
           UNS_KEY_ARN: key,
-          UNS_API_KEY: unsApiKeySecret.secretArn,
+          UNS_API_KEY: apiKey,
         },
         retentionDays: logs.RetentionDays.ONE_WEEK,
         runtime: cdk.aws_lambda.Runtime.NODEJS_LATEST,
