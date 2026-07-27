@@ -71,9 +71,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build Application
-        run: pnpm run build
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@56d6a583f00f6bad6d19d91d53a7bc3b8143d0e9 # v5.1.1
         with:
@@ -85,6 +82,9 @@ jobs:
         run: pnpm run cdk:predeploy
         env:
           SSM_PARAMETERS_TO_UPDATE: ${{ vars.SSM_PARAMETERS_TO_UPDATE }}
+
+      - name: Build Application
+        run: pnpm run build
 
       - name: Deploy to Environment
         run: pnpm run deploy:dev
