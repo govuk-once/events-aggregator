@@ -1,15 +1,33 @@
-import { describe, it, vi, afterAll, expect } from 'vitest';
+import { describe, it, vi, afterAll, expect, afterEach } from 'vitest';
 import { handler } from '.';
 import { getSecret } from '@aws-lambda-powertools/parameters/secrets';
 import { Logger } from '@aws-lambda-powertools/logger';
 
 import nock from 'nock';
-import { afterEach } from 'node:test';
 
 vi.stubEnv('UNS_API_URL', 'http://uns.api');
 vi.stubEnv('UNS_CERT_ARN', 'arn::cert');
 vi.stubEnv('UNS_KEY_ARN', 'arn:key');
-vi.stubEnv('UNS_API_KEY', 'api_key');
+vi.stubEnv('UNS_API_KEY_ARN', 'api_key');
+vi.stubEnv('SSM_PREFIX', 'prefix');
+
+const { sendMock } = vi.hoisted(() => ({
+  sendMock: vi.fn(),
+}));
+
+vi.mock('@aws-sdk/client-ssm', () => ({
+  SSMClient: class {
+    send = sendMock;
+  },
+
+  GetParametersByPathCommand: class {
+    input: Record<string, unknown>;
+
+    constructor(input: Record<string, unknown>) {
+      this.input = input;
+    }
+  },
+}));
 
 const mockCredentialProvider = vi.hoisted(() =>
   vi.fn().mockResolvedValue({
@@ -50,6 +68,23 @@ describe('Travel Alerts Schedule', () => {
   });
 
   it('Should get all travel alerts for given time and send to uns', async () => {
+    sendMock.mockResolvedValueOnce({
+      Parameters: [
+        {
+          Name: '/prefix/uns-api-url',
+          Value: 'http://uns.api',
+        },
+        {
+          Name: '/prefix/uns-mtls-cert-arn',
+          Value: 'arn::cert',
+        },
+        {
+          Name: '/prefix/uns-mtls-key-arn',
+          Value: 'arn:key',
+        },
+      ],
+    });
+
     mockGetSecret.mockResolvedValue('-----BEGIN');
 
     const scope = nock('https://www.gov.uk')

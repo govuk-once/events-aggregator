@@ -47,24 +47,21 @@ export class EventsAggregatorStack extends cdk.Stack {
       `/${namespace}/uns-mtls-cert-arn`,
       `/${namespace}/uns-mtls-key-arn`,
       `/${namespace}/uns-kms-key-arn`,
+      `/${namespace}/uns-api-key`,
     ];
 
-    const [cert, key, kmsArn] = params.map((param: string) =>
+    const [cert, key, kmsArn, apiKeyArn] = params.map((param: string) =>
       StringParameter.valueForStringParameter(this, param),
     );
-
-    const unsApiKeySecret = new Secret(this, 'UnsApiKeySecret', {
-      secretName: `${namespace}/uns-api-key`,
-      description: 'UNS API key',
-      secretStringValue: cdk.SecretValue.unsafePlainText('PLACEHOLDER'),
-      removalPolicy: isEphemeralEnvironment()
-        ? cdk.RemovalPolicy.DESTROY
-        : cdk.RemovalPolicy.RETAIN,
-    });
 
     const certSecret = Secret.fromSecretCompleteArn(this, 'ClientCert', cert);
 
     const keySecret = Secret.fromSecretCompleteArn(this, 'ClientKey', key);
+    // const unsApiKeySecret = Secret.fromSecretCompleteArn(
+    //   this,
+    //   'ApiKey',
+    //   apiKeyArn,
+    // );
 
     const lambdaFactory = new LambdaFactory(this, 'EventsAggregator');
 
@@ -111,7 +108,7 @@ export class EventsAggregatorStack extends cdk.Stack {
         name: 'pollTravelContent',
         environment: {
           SSM_PREFIX: namespace,
-          UNS_API_KEY_ARN: unsApiKeySecret.secretArn,
+          UNS_API_KEY_ARN: apiKeyArn,
         },
         retentionDays: logs.RetentionDays.ONE_WEEK,
         runtime: cdk.aws_lambda.Runtime.NODEJS_LATEST,
@@ -129,7 +126,7 @@ export class EventsAggregatorStack extends cdk.Stack {
 
     certSecret.grantRead(lambdaFunction);
     keySecret.grantRead(lambdaFunction);
-    unsApiKeySecret.grantRead(lambdaFunction);
+    // unsApiKeySecret.grantRead(lambdaFunction);
 
     (['hourly', 'daily', 'weekly'] as ScheduleFrequency[]).map(
       (frequency: ScheduleFrequency) => {

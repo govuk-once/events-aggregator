@@ -5,8 +5,10 @@ import {
   getStartTime,
   getTravelChangesSince,
 } from '@/utils';
+import { getParameter, SsmParameters } from '@/utils/ssm-client';
 import { createUnsMtlsClientFromSecrets } from '@/utils/uns-client';
 import { Logger } from '@aws-lambda-powertools/logger';
+import { getSecret } from '@aws-lambda-powertools/parameters/secrets';
 
 const logger = new Logger();
 
@@ -49,11 +51,20 @@ export const handler = async (event: TravelAlertScheduleEvent) => {
       return false;
     }
 
+    const [apiUrl, certSecretArn, keySecretArn] = await Promise.all([
+      getParameter(SsmParameters.UnsApiUrl),
+      getParameter(SsmParameters.UnsMtlsCertArn),
+      getParameter(SsmParameters.UnsMtlsKeyArn),
+    ]);
+
+    const apiKeySecretArn = process.env.UNS_API_KEY_ARN as string;
+    const apiKey = await getSecret<string>(apiKeySecretArn);
+
     const uns = await createUnsMtlsClientFromSecrets({
-      apiUrl: process.env.UNS_API_URL as string,
-      certSecretArn: process.env.UNS_CERT_ARN as string,
-      keySecretArn: process.env.UNS_KEY_ARN as string,
-      apiKey: process.env.UNS_API_KEY,
+      apiUrl,
+      certSecretArn,
+      keySecretArn,
+      apiKey,
     });
 
     const result = await uns.notification.sendToSubscribers(unsPayload);
