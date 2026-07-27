@@ -4,6 +4,7 @@ import type {
   ScheduleFrequency,
   SearchResponse,
 } from '@/types';
+import { getSecret } from '@aws-lambda-powertools/parameters/secrets';
 
 export const SEARCH_BASE = 'https://www.gov.uk/api/search.json';
 export const CONTENT_API = 'https://www.gov.uk/api/content';
@@ -96,4 +97,18 @@ export const getNotificationPayload = (
     MessageTitle: `${country.details.country.name} Travel Advice`,
     MessageBody: `Changes made :\n\n${country.details.change_history[0].note}\n\n \n \n \n\nTime updated :\n${country.details.change_history[0].public_timestamp}\n\n\n`,
   };
+};
+
+/**
+ * Read one secret as a raw PEM string. `maxAge` caches the value for 10 minutes
+ * so we don't hit Secrets Manager on every warm invocation.
+ */
+export const getSmmSecret = async (secretArn: string): Promise<string> => {
+  const value = await getSecret<string>(secretArn, { maxAge: 600 });
+
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new Error(`secret is empty or not a string: ${secretArn}`);
+  }
+
+  return value;
 };

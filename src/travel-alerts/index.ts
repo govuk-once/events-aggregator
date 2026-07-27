@@ -2,13 +2,13 @@ import type { NotificationPayload, TravelAlertScheduleEvent } from '@/types';
 import {
   getCountryChanges,
   getNotificationPayload,
+  getSmmSecret,
   getStartTime,
   getTravelChangesSince,
 } from '@/utils';
 import { getParameter, SsmParameters } from '@/utils/ssm-client';
 import { createUnsMtlsClientFromSecrets } from '@/utils/uns-client';
 import { Logger } from '@aws-lambda-powertools/logger';
-import { getSecret } from '@aws-lambda-powertools/parameters/secrets';
 
 const logger = new Logger();
 
@@ -59,7 +59,7 @@ export const handler = async (event: TravelAlertScheduleEvent) => {
         getParameter(SsmParameters.UnsApiKey),
       ]);
 
-    const apiKey = await getSecret<string>(apiKeySecretArn);
+    const apiKey = await getSmmSecret(apiKeySecretArn);
 
     const uns = await createUnsMtlsClientFromSecrets({
       apiUrl,

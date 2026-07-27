@@ -50,7 +50,7 @@ export class EventsAggregatorStack extends cdk.Stack {
       `/${namespace}/uns-api-key`,
     ];
 
-    const [cert, key, kmsArn, apiKeyArn] = params.map((param: string) =>
+    const [cert, key, kmsArn] = params.map((param: string) =>
       StringParameter.valueForStringParameter(this, param),
     );
 
@@ -58,7 +58,11 @@ export class EventsAggregatorStack extends cdk.Stack {
 
     const keySecret = Secret.fromSecretCompleteArn(this, 'ClientKey', key);
 
-    const apiKey = Secret.fromSecretCompleteArn(this, 'ApiKey', apiKeyArn);
+    const apiKey = Secret.fromSecretNameV2(
+      this,
+      'ApiKey',
+      'ea-runner/uns-api-key',
+    );
 
     const lambdaFactory = new LambdaFactory(this, 'EventsAggregator');
 
@@ -117,6 +121,27 @@ export class EventsAggregatorStack extends cdk.Stack {
         effect: iam.Effect.ALLOW,
         actions: ['kms:Decrypt'],
         resources: [kmsArn],
+      }),
+    );
+
+    lambdaFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'secretsmanager:DescribeSecret',
+          'secretsmanager:GetSecretValue',
+        ],
+        resources: [cert, key],
+      }),
+    );
+
+    lambdaFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['ssm:GetParameter', 'ssm:GetParametersByPath'],
+        resources: [
+          `arn:aws:ssm:${this.region}:${this.account}:parameter/${namespace}/*`,
+        ],
       }),
     );
 
