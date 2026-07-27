@@ -33,6 +33,7 @@ export const handler = async (event: TravelAlertScheduleEvent) => {
         startTime,
         event.schedule,
       );
+
       if (countryPayload) {
         unsPayload.push(countryPayload);
       }

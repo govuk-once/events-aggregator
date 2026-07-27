@@ -90,16 +90,17 @@ describe('Travel Alerts Schedule', () => {
       );
 
     const unsScope = nock('http://uns.api')
-      .post('/send', [
+      .post('/send-to-subscribers', [
         {
           Subscription: 'travel/spain/daily',
-          NotificationTitle: 'There has been 1 travel updates for Spain',
-          NotificationBody: 'There has been 1 travel updates for Spain',
-          MessageTitle: 'There has been 1 travel updates for Spain',
-          MessageBody: 'There has been 1 travel updates for Spain',
+          NotificationTitle: 'Travel Advice - Spain',
+          NotificationBody:
+            "There's been a change in country you are interested in",
+          MessageTitle: 'Spain Travel Advice',
+          MessageBody:
+            'Changes made :\n\nA change has happened\n\n \n \n \n\nTime updated :\n2026-07-21T10:10:00Z\n\n\n',
         },
       ])
-      .query(true)
       .reply(200, {}, { content_type: 'application/json' });
 
     await handler({

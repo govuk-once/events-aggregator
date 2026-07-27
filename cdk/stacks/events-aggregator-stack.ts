@@ -9,7 +9,6 @@ import * as events from 'aws-cdk-lib/aws-events';
 import { Construct } from 'constructs';
 import { LambdaFactory } from '../cdk_constructs/LambdaFunctionFactory';
 import {
-  getEnvironment,
   getResourceNamePrefix,
   isEphemeralEnvironment,
 } from '../constants/environments';
@@ -33,7 +32,6 @@ export class EventsAggregatorStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: EventsAggregatorStackProps) {
     super(scope, id, props);
 
-    const env = getEnvironment();
     const namePrefix = getResourceNamePrefix();
     const __dirname = dirname(fileURLToPath(import.meta.url));
 
