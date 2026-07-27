@@ -24,6 +24,7 @@
     "test:bdd:watch": "cucumber-js --watch",
     "cdk": "cdk",
     "cdk:watch": "cdk watch",
+    "cdk:synth": "cdk synth",
     "cdk:diff": "cdk diff",
     "cdk:predeploy": "tsx cdk/cdk.predeploy.ssm.ts",
     "cdk:deploy": "cdk deploy --require-approval never",

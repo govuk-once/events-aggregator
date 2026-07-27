@@ -57,11 +57,8 @@ export class EventsAggregatorStack extends cdk.Stack {
     const certSecret = Secret.fromSecretCompleteArn(this, 'ClientCert', cert);
 
     const keySecret = Secret.fromSecretCompleteArn(this, 'ClientKey', key);
-    // const unsApiKeySecret = Secret.fromSecretCompleteArn(
-    //   this,
-    //   'ApiKey',
-    //   apiKeyArn,
-    // );
+
+    const apiKey = Secret.fromSecretCompleteArn(this, 'ApiKey', apiKeyArn);
 
     const lambdaFactory = new LambdaFactory(this, 'EventsAggregator');
 
@@ -108,7 +105,6 @@ export class EventsAggregatorStack extends cdk.Stack {
         name: 'pollTravelContent',
         environment: {
           SSM_PREFIX: namespace,
-          UNS_API_KEY_ARN: apiKeyArn,
         },
         retentionDays: logs.RetentionDays.ONE_WEEK,
         runtime: cdk.aws_lambda.Runtime.NODEJS_LATEST,
@@ -126,7 +122,7 @@ export class EventsAggregatorStack extends cdk.Stack {
 
     certSecret.grantRead(lambdaFunction);
     keySecret.grantRead(lambdaFunction);
-    // unsApiKeySecret.grantRead(lambdaFunction);
+    apiKey.grantRead(lambdaFunction);
 
     (['hourly', 'daily', 'weekly'] as ScheduleFrequency[]).map(
       (frequency: ScheduleFrequency) => {
