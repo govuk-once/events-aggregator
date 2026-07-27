@@ -1,6 +1,6 @@
 import { FetchInit, NotificationPayload } from '@/types';
 import { getSecret } from '@aws-lambda-powertools/parameters/secrets';
-import { createHash } from 'crypto';
+import { createHash } from 'node:crypto';
 import { Agent } from 'undici';
 
 // ---------------------------------------------------------------------------
