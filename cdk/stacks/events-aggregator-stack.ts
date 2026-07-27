@@ -50,7 +50,7 @@ export class EventsAggregatorStack extends cdk.Stack {
     ];
 
     const [cert, key, kmsArn] = params.map((param: string) =>
-      StringParameter.valueFromLookup(this, param, '{}'),
+      StringParameter.valueForStringParameter(this, param),
     );
 
     const unsApiKeySecret = new Secret(this, 'UnsApiKeySecret', {
