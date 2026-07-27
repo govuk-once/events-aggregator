@@ -60,7 +60,7 @@ const CONNECT_TIMEOUT_MS = 10_000;
 const agentCache = new Map<string, Agent>();
 
 const cacheKey = (config: MtlsClientConfig): string => {
-  const fingerprint = createHash('sha265')
+  const fingerprint = createHash('sha256')
     .update(config.clientCert)
     .update('|')
     .update(config.clientKey)
