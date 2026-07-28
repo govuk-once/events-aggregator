@@ -3,7 +3,6 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import * as events from 'aws-cdk-lib/aws-events';
@@ -19,6 +18,7 @@ import {
   ScheduleFrequency,
 } from '../cdk_constructs/EventBridgeScheduleFactory';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
+import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
 
 export interface EventsAggregatorStackProps extends cdk.StackProps {
   serviceName: string;
@@ -44,28 +44,24 @@ export class EventsAggregatorStack extends cdk.Stack {
     cdk.Tags.of(this).add('CostCenter', props.costCenter);
     cdk.Tags.of(this).add('Environment', props.environment);
 
-    const namespace = `ea-${env}`;
-    const parameterNames = {
-      certArn: `/${namespace}/uns-mtls-cert-arn`,
-      keyArn: `/${namespace}/uns-mtls-key-arn`,
-      kmsKeyArn: `/${namespace}/uns-kms-key-arn`,
-    };
+    const localNamespace = `ea-${env}`;
+    const sharedNamespace = `ea-runner`;
+    const params = [
+      `/${sharedNamespace}/uns-mtls-cert-arn`,
+      `/${sharedNamespace}/uns-mtls-key-arn`,
+      `/${sharedNamespace}/uns-kms-key-arn`,
+    ];
 
-    const unsCertArn = StringParameter.valueForStringParameter(
-      this,
-      parameterNames.certArn,
-    );
-    const unsKeyArn = StringParameter.valueForStringParameter(
-      this,
-      parameterNames.keyArn,
-    );
-    const unsKmsKeyArn = StringParameter.valueForStringParameter(
-      this,
-      parameterNames.kmsKeyArn,
+    const [cert, key, kmsArn] = params.map((param: string) =>
+      StringParameter.valueForStringParameter(this, param),
     );
 
-    const unsApiKeySecret = new secretsmanager.Secret(this, 'UnsApiKeySecret', {
-      secretName: `${namespace}/uns-api-key`,
+    const certSecret = Secret.fromSecretCompleteArn(this, 'ClientCert', cert);
+
+    const keySecret = Secret.fromSecretCompleteArn(this, 'ClientKey', key);
+
+    const unsApiKeySecret = new Secret(this, 'UnsApiKeySecret', {
+      secretName: `${localNamespace}/uns-api-key`,
       description: 'UNS API key',
       secretStringValue: cdk.SecretValue.unsafePlainText('PLACEHOLDER'),
       removalPolicy: isEphemeralEnvironment()
@@ -107,15 +103,17 @@ export class EventsAggregatorStack extends cdk.Stack {
     const lambdaFunction = lambdaFactory.createLambda(
       'PollTravelContentLambda',
       {
-        code: lambda.Code.fromAsset(join(__dirname, '../../src/travel-alerts')),
+        code: lambda.Code.fromAsset(
+          join(__dirname, '../../dist/travel-alerts'),
+        ),
         description: 'Polls the content api and sends events to UNS',
         duration: 10,
         key: logKey,
-        handler: 'handler',
+        handler: 'index.handler',
         memorySize: 128,
         name: 'pollTravelContent',
         environment: {
-          SSM_PREFIX: namespace,
+          SSM_PREFIX: sharedNamespace,
           UNS_API_KEY_ARN: unsApiKeySecret.secretArn,
         },
         retentionDays: logs.RetentionDays.ONE_WEEK,
@@ -127,10 +125,8 @@ export class EventsAggregatorStack extends cdk.Stack {
     lambdaFunction.addToRolePolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
-        actions: ['ssm:GetParameter', 'ssm:GetParametersByPath'],
-        resources: [
-          `arn:aws:ssm:${this.region}:${this.account}:parameter/${namespace}/*`,
-        ],
+        actions: ['kms:Decrypt'],
+        resources: [kmsArn],
       }),
     );
 
@@ -141,18 +137,22 @@ export class EventsAggregatorStack extends cdk.Stack {
           'secretsmanager:DescribeSecret',
           'secretsmanager:GetSecretValue',
         ],
-        resources: [unsCertArn, unsKeyArn],
+        resources: [cert, key],
       }),
     );
 
     lambdaFunction.addToRolePolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
-        actions: ['kms:Decrypt'],
-        resources: [unsKmsKeyArn],
+        actions: ['ssm:GetParameter', 'ssm:GetParametersByPath'],
+        resources: [
+          `arn:aws:ssm:${this.region}:${this.account}:parameter/${sharedNamespace}/*`,
+        ],
       }),
     );
 
+    certSecret.grantRead(lambdaFunction);
+    keySecret.grantRead(lambdaFunction);
     unsApiKeySecret.grantRead(lambdaFunction);
 
     (['hourly', 'daily', 'weekly'] as ScheduleFrequency[]).map(

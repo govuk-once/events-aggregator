@@ -12,7 +12,7 @@
   },
   "packageManager": "pnpm@10.25.0",
   "scripts": {
-    "build": "tsc",
+    "build": "node build-lambdas.mjs",
     "watch": "tsc -w",
     "dev": "concurrently -n tsc,cdk -c purple,orange\"tsc -w\" \"cdk watch --hotswap\"",
     "test": "vitest run",
@@ -24,6 +24,7 @@
     "test:bdd:watch": "cucumber-js --watch",
     "cdk": "cdk",
     "cdk:watch": "cdk watch",
+    "cdk:synth": "cdk synth",
     "cdk:diff": "cdk diff",
     "cdk:predeploy": "tsx cdk/cdk.predeploy.ssm.ts",
     "cdk:deploy": "cdk deploy --require-approval never",
@@ -61,6 +62,7 @@
     "ts-node": "^10.9.2",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.48.1",
+    "undici-types": "^8.8.0",
     "vitest": "^4.0.15"
   },
   "dependencies": {
@@ -71,7 +73,12 @@
     "@aws-sdk/credential-providers": "^3.1092.0",
     "@aws-sdk/types": "^3.974.2",
     "aws-cdk-lib": "2.215.0",
+    "aws-sigv4-fetch": "^4.4.1",
     "constructs": "^10.4.3",
-    "tsx": "^4.23.1"
+    "nock": "^14.0.16",
+    "secrets": "link:@aws-lambda-powertools/parameters/secrets",
+    "tsx": "^4.23.1",
+    "undici": "7.24.0",
+    "vite-tsconfig-paths": "^6.1.1"
   }
 }
