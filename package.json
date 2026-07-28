@@ -16,6 +16,7 @@
     "watch": "tsc -w",
     "dev": "concurrently -n tsc,cdk -c purple,orange\"tsc -w\" \"cdk watch --hotswap\"",
     "test": "vitest run",
+    "test:unit": "vitest run --coverage src --passWithNoTests",
     "test:coverage": "vitest run --coverage src --passWithNoTests",
     "test:watch": "vitest",
     "cdk": "cdk",
