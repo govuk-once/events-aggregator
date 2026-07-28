@@ -79,10 +79,13 @@ export const getStartTime = (
   return date.toISOString();
 };
 
+type InstantSchedule = 'instant';
+type Frequency = ScheduleFrequency | InstantSchedule;
+
 export const getNotificationPayload = (
   country: CountryResponse,
   timestamp: string,
-  schedule: ScheduleFrequency,
+  schedule: Frequency,
 ): NotificationPayload | null => {
   const changeCount = country.details.change_history.filter(
     ({ public_timestamp }) => public_timestamp >= timestamp,
@@ -91,7 +94,9 @@ export const getNotificationPayload = (
   if (changeCount < 1) return null;
 
   return {
-    Subscription: `travel/${country.details.country.slug}/${schedule}`,
+    Namespace: `travel`,
+    Group: country.details.country.slug,
+    Subgroup: schedule,
     NotificationTitle: `Travel Advice - ${country.details.country.name}`,
     NotificationBody: `There's been a change in country you are interested in`,
     MessageTitle: `${country.details.country.name} Travel Advice`,

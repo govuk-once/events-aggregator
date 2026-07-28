@@ -37,7 +37,9 @@ export type CountryResponse = {
 };
 
 export type NotificationPayload = {
-  Subscription: string;
+  Namespace:string;
+  Group: string;
+  Subgroup: string;
   NotificationTitle: string;
   NotificationBody: string;
   MessageTitle: string;

@@ -9,6 +9,7 @@ import * as events from 'aws-cdk-lib/aws-events';
 import { Construct } from 'constructs';
 import { LambdaFactory } from '../cdk_constructs/LambdaFunctionFactory';
 import {
+  getEnvironment,
   getResourceNamePrefix,
   isEphemeralEnvironment,
 } from '../constants/environments';
@@ -32,6 +33,7 @@ export class EventsAggregatorStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: EventsAggregatorStackProps) {
     super(scope, id, props);
 
+    const env = getEnvironment();
     const namePrefix = getResourceNamePrefix();
     const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -42,12 +44,12 @@ export class EventsAggregatorStack extends cdk.Stack {
     cdk.Tags.of(this).add('CostCenter', props.costCenter);
     cdk.Tags.of(this).add('Environment', props.environment);
 
-    const namespace = `ea-runner`;
+    const localNamespace = `ea-${env}`;
+    const sharedNamespace = `ea-runner`;
     const params = [
-      `/${namespace}/uns-mtls-cert-arn`,
-      `/${namespace}/uns-mtls-key-arn`,
-      `/${namespace}/uns-kms-key-arn`,
-      `/${namespace}/uns-api-key`,
+      `/${sharedNamespace}/uns-mtls-cert-arn`,
+      `/${sharedNamespace}/uns-mtls-key-arn`,
+      `/${sharedNamespace}/uns-kms-key-arn`,
     ];
 
     const [cert, key, kmsArn] = params.map((param: string) =>
@@ -58,11 +60,14 @@ export class EventsAggregatorStack extends cdk.Stack {
 
     const keySecret = Secret.fromSecretCompleteArn(this, 'ClientKey', key);
 
-    const apiKey = Secret.fromSecretNameV2(
-      this,
-      'ApiKey',
-      'ea-runner/uns-api-key',
-    );
+    const unsApiKeySecret = new Secret(this, 'UnsApiKeySecret', {
+      secretName: `${localNamespace}/uns-api-key`,
+      description: 'UNS API key',
+      secretStringValue: cdk.SecretValue.unsafePlainText('PLACEHOLDER'),
+      removalPolicy: isEphemeralEnvironment()
+        ? cdk.RemovalPolicy.DESTROY
+        : cdk.RemovalPolicy.RETAIN,
+    });
 
     const lambdaFactory = new LambdaFactory(this, 'EventsAggregator');
 
@@ -108,7 +113,8 @@ export class EventsAggregatorStack extends cdk.Stack {
         memorySize: 128,
         name: 'pollTravelContent',
         environment: {
-          SSM_PREFIX: namespace,
+          SSM_PREFIX: sharedNamespace,
+          UNS_API_KEY_ARN: unsApiKeySecret.secretArn,
         },
         retentionDays: logs.RetentionDays.ONE_WEEK,
         runtime: cdk.aws_lambda.Runtime.NODEJS_LATEST,
@@ -140,14 +146,14 @@ export class EventsAggregatorStack extends cdk.Stack {
         effect: iam.Effect.ALLOW,
         actions: ['ssm:GetParameter', 'ssm:GetParametersByPath'],
         resources: [
-          `arn:aws:ssm:${this.region}:${this.account}:parameter/${namespace}/*`,
+          `arn:aws:ssm:${this.region}:${this.account}:parameter/${sharedNamespace}/*`,
         ],
       }),
     );
 
     certSecret.grantRead(lambdaFunction);
     keySecret.grantRead(lambdaFunction);
-    apiKey.grantRead(lambdaFunction);
+    unsApiKeySecret.grantRead(lambdaFunction);
 
     (['hourly', 'daily', 'weekly'] as ScheduleFrequency[]).map(
       (frequency: ScheduleFrequency) => {

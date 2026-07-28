@@ -145,6 +145,8 @@ const toApiResult = async <T>(
 export const createUnsMtlsClient = (config: MtlsClientConfig) => {
   const dispatcher = getAgent(config);
 
+  console.log({config});
+
   const defaultHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
     Accept: 'application/json',
@@ -169,7 +171,7 @@ export const createUnsMtlsClient = (config: MtlsClientConfig) => {
       sendToSubscribers: (
         body: NotificationPayload[],
       ): Promise<ApiResult<void>> =>
-        send(`/send-to-subscribers`, {
+        send(`/v1/send-to-group`, {
           method: 'POST',
           body: JSON.stringify(body),
         }),
