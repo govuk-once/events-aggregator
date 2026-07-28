@@ -145,8 +145,6 @@ const toApiResult = async <T>(
 export const createUnsMtlsClient = (config: MtlsClientConfig) => {
   const dispatcher = getAgent(config);
 
-  console.log({config});
-
   const defaultHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
     Accept: 'application/json',
