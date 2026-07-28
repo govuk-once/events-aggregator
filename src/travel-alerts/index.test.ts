@@ -129,11 +129,11 @@ describe('Travel Alerts Schedule', () => {
       );
 
     const unsScope = nock('http://uns.api')
-      .post('/send-to-group', [
+      .post('/v1/send-to-group', [
         {
           Namespace: 'travel',
           Group: 'spain',
-          Subgroup: 'daily',
+          Subgroup: 'instant',
           NotificationTitle: 'Travel Advice - Spain',
           NotificationBody:
             "There's been a change in country you are interested in",
