@@ -225,8 +225,8 @@ jobs:
 
       - name: Setup pnpm
         run: |
-          npm install -g pnpm
-          pnpm install
+          npm install -g pnpm@10.14.0
+          pnpm install --frozen-lockfile
 
       - name: Setup Node
         uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f #v6
