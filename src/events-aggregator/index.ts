@@ -7,6 +7,8 @@ const logger = new Logger();
 
 export const handler = async (event: unknown) => {
   logger.info('events-aggregator', { event });
+
+  // temp commented out copied from the original solution this will prob be part of this solution
   // const [apiUrl, certSecretArn, keySecretArn] = await Promise.all([
   //       getParameter(SsmParameters.UnsApiUrl),
   //       getParameter(SsmParameters.UnsMtlsCertArn),

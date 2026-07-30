@@ -9,6 +9,7 @@ const logger = new Logger();
 export const handler = async (event: DynamoDBStreamEvent) => {
   logger.info('single-event', { event });
 
+  // temp commented out copied from the original solution this will prob be part of this solution
   // const [apiUrl, certSecretArn, keySecretArn] = await Promise.all([
   //   getParameter(SsmParameters.UnsApiUrl),
   //   getParameter(SsmParameters.UnsMtlsCertArn),
