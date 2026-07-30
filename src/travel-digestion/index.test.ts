@@ -144,10 +144,12 @@ describe('Travel Alerts Schedule', () => {
       ])
       .reply(200, {}, { content_type: 'application/json' });
 
-    await handler({
+    const response = await handler({
       triggeredAt: '2026-07-20',
       schedule: 'daily',
     });
+
+    expect(response).toBe(true);
 
     scope.done();
     contentScope.done();
