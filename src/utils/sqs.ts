@@ -1,0 +1,47 @@
+import { ChangeHistory, CountryDetails, SearchResponseCountry } from '@/types';
+import { IncomingEvent } from '@/types/events';
+import {
+  SQSClient,
+  SendMessageCommand,
+  type SendMessageCommandOutput,
+} from '@aws-sdk/client-sqs';
+
+// 1. Initialize the SQS client (ensure your AWS credentials are configured in your environment)
+const sqs = new SQSClient({ region: 'eu-west-2' }); // Change to your AWS region (e.g., eu-west-2 for London)
+
+export const travelEventToIncomingEvent = (
+  history: ChangeHistory,
+  details: CountryDetails,
+): IncomingEvent => {
+  return {
+    eventID: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+    eventTimestamp: history.public_timestamp,
+    // Group details
+    namespace: 'travel',
+    group: details.country.slug,
+    // Event details - in the future if other services are integrated into the event aggregator, each row here could have it's own custom set of properties
+    eventNote: history.note,
+  };
+};
+
+export const sendIncomingEventToQueue = async (
+  event: IncomingEvent,
+  queueUrl: string,
+): Promise<SendMessageCommandOutput> => {
+  try {
+    const params = {
+      QueueUrl: queueUrl,
+      MessageBody: JSON.stringify(event), // Events are typically sent as JSON strings
+      MessageGroupId: '1',
+    };
+
+    const command = new SendMessageCommand(params);
+    const response = await sqs.send(command);
+
+    console.log('Successfully sent event, Message ID:', response.MessageId);
+    return response;
+  } catch (error) {
+    console.error('Error sending event to SQS:', error);
+    throw Error('');
+  }
+};

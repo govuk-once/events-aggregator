@@ -2,14 +2,15 @@ import { describe, it, vi, afterAll, expect, afterEach } from 'vitest';
 import { handler } from '.';
 import { getSecret } from '@aws-lambda-powertools/parameters/secrets';
 import { Logger } from '@aws-lambda-powertools/logger';
+import { mockClient } from 'aws-sdk-client-mock';
+import { SendMessageCommand, SQSClient } from '@aws-sdk/client-sqs';
 
 import nock from 'nock';
 
-vi.stubEnv('UNS_API_URL', 'http://uns.api');
-vi.stubEnv('UNS_CERT_ARN', 'arn::cert');
-vi.stubEnv('UNS_KEY_ARN', 'arn:key');
 vi.stubEnv('UNS_API_KEY_ARN', 'api_key');
 vi.stubEnv('SSM_PREFIX', 'prefix');
+
+const sqsMock = mockClient(SQSClient);
 
 const { sendMock } = vi.hoisted(() => ({
   sendMock: vi.fn(),
@@ -57,7 +58,7 @@ const mockGetSecret = vi.mocked(getSecret) as unknown as ReturnType<
   typeof vi.fn
 >;
 
-describe('Travel Alerts Schedule', () => {
+describe('Travel Ingestion', () => {
   afterEach(() => {
     loggerInfoSpy.mockClear();
     loggerErrorSpy.mockClear();
@@ -68,28 +69,7 @@ describe('Travel Alerts Schedule', () => {
   });
 
   it('Should get all travel alerts for given time and send to uns', async () => {
-    sendMock.mockResolvedValueOnce({
-      Parameters: [
-        {
-          Name: '/prefix/uns-api-url',
-          Value: 'http://uns.api',
-        },
-        {
-          Name: '/prefix/uns-api-key',
-          Value: 'api_key',
-        },
-        {
-          Name: '/prefix/uns-mtls-cert-arn',
-          Value: 'arn::cert',
-        },
-        {
-          Name: '/prefix/uns-mtls-key-arn',
-          Value: 'arn:key',
-        },
-      ],
-    });
-
-    mockGetSecret.mockResolvedValue('-----BEGIN');
+    sqsMock.on(SendMessageCommand).resolves({});
 
     const scope = nock('https://www.gov.uk')
       .get('/api/search.json')
@@ -128,22 +108,6 @@ describe('Travel Alerts Schedule', () => {
         { content_type: 'application/json' },
       );
 
-    const unsScope = nock('http://uns.api')
-      .post('/v1/send-to-group', [
-        {
-          Namespace: 'travel',
-          Group: 'spain',
-          Subgroup: 'instant',
-          NotificationTitle: 'Travel Advice - Spain',
-          NotificationBody:
-            "There's been a change in country you are interested in",
-          MessageTitle: 'Spain Travel Advice',
-          MessageBody:
-            'Changes made :\n\nA change has happened\n\n \n \n \n\nTime updated :\n2026-07-21T10:10:00Z\n\n\n',
-        },
-      ])
-      .reply(200, {}, { content_type: 'application/json' });
-
     await handler({
       triggeredAt: '2026-07-20',
       schedule: 'daily',
@@ -151,7 +115,6 @@ describe('Travel Alerts Schedule', () => {
 
     scope.done();
     contentScope.done();
-    unsScope.done();
   });
 
   it('should log info if the search api returns not results', async () => {

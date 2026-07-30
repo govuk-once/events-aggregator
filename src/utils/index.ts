@@ -1,4 +1,5 @@
 import type {
+  ChangeHistory,
   CountryResponse,
   NotificationPayload,
   ScheduleFrequency,
@@ -79,29 +80,15 @@ export const getStartTime = (
   return date.toISOString();
 };
 
-type InstantSchedule = 'instant';
-type Frequency = ScheduleFrequency | InstantSchedule;
-
-export const getNotificationPayload = (
+export const getEventsFromCountry = (
   country: CountryResponse,
   timestamp: string,
-  schedule: Frequency,
-): NotificationPayload | null => {
-  const changeCount = country.details.change_history.filter(
+): ChangeHistory[] | null => {
+  const countryChanges = country.details.change_history.filter(
     ({ public_timestamp }) => public_timestamp >= timestamp,
-  ).length;
+  );
 
-  if (changeCount < 1) return null;
-
-  return {
-    Namespace: `travel`,
-    Group: country.details.country.slug,
-    Subgroup: schedule,
-    NotificationTitle: `Travel Advice - ${country.details.country.name}`,
-    NotificationBody: `There's been a change in country you are interested in`,
-    MessageTitle: `${country.details.country.name} Travel Advice`,
-    MessageBody: `Changes made :\n\n${country.details.change_history[0].note}\n\n \n \n \n\nTime updated :\n${country.details.change_history[0].public_timestamp}\n\n\n`,
-  };
+  return countryChanges;
 };
 
 /**

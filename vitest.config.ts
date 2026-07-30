@@ -11,7 +11,13 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
       include: ['src/**', 'cdk/**'],
-      exclude: ['**/*.test.ts', '**/*.d.ts', 'node_modules/**', 'dist/**'],
+      exclude: [
+        '**/*.test.ts',
+        '**/*.d.ts',
+        'node_modules/**',
+        'dist/**',
+        'cdk.out/**',
+      ],
     },
   },
 });
