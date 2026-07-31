@@ -19,8 +19,11 @@ import {
 } from '../cdk_constructs/EventBridgeScheduleFactory';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { ISecret, Secret } from 'aws-cdk-lib/aws-secretsmanager';
-import { ITable } from 'aws-cdk-lib/aws-dynamodb';
-import { DynamoDbTableFactory } from '../cdk_constructs/DynamoTableFactory';
+import { AttributeType, ITable } from 'aws-cdk-lib/aws-dynamodb';
+import {
+  DynamoDbTableFactory,
+  ITableWithStream,
+} from '../cdk_constructs/DynamoTableFactory';
 
 interface IUnsConfig {
   certArn: ISecret;
@@ -45,6 +48,8 @@ const constants = {
 
 export class EventsAggregatorStack extends cdk.Stack {
   public readonly sourceSourceTable: ITable;
+  public readonly eventStoreTable: ITableWithStream;
+  public readonly sharedNamespace: string = `ea-runner`;
 
   private readonly dynamoFactory = new DynamoDbTableFactory(
     this,
@@ -66,11 +71,10 @@ export class EventsAggregatorStack extends cdk.Stack {
     cdk.Tags.of(this).add('Environment', props.environment);
 
     const localNamespace = `ea-${env}`;
-    const sharedNamespace = `ea-runner`;
     const params = [
-      `/${sharedNamespace}/uns-mtls-cert-arn`,
-      `/${sharedNamespace}/uns-mtls-key-arn`,
-      `/${sharedNamespace}/uns-kms-key-arn`,
+      `/${this.sharedNamespace}/uns-mtls-cert-arn`,
+      `/${this.sharedNamespace}/uns-mtls-key-arn`,
+      `/${this.sharedNamespace}/uns-kms-key-arn`,
     ];
 
     const [cert, key, kmsArn] = params.map((param: string) =>
@@ -146,7 +150,7 @@ export class EventsAggregatorStack extends cdk.Stack {
         memorySize: 128,
         name: 'travel-digestion',
         environment: {
-          SSM_PREFIX: sharedNamespace,
+          SSM_PREFIX: this.sharedNamespace,
           UNS_API_KEY_ARN: unsApiKeySecret.secretArn,
         },
         retentionDays: logs.RetentionDays.ONE_WEEK,
@@ -166,6 +170,55 @@ export class EventsAggregatorStack extends cdk.Stack {
     certSecret.grantRead(travelDigestionLambda);
     keySecret.grantRead(travelDigestionLambda);
     unsApiKeySecret.grantRead(travelDigestionLambda);
+
+    const singleEventLambda = lambdaFactory.createLambda('SingleEventLambda', {
+      code: lambda.Code.fromAsset(join(__dirname, '../../dist/single-event')),
+      description: 'sends a single event to UNS',
+      duration: 10,
+      key: logKey,
+      handler: 'index.handler',
+      memorySize: 128,
+      name: 'single-event',
+      environment: {
+        SSM_PREFIX: this.sharedNamespace,
+        UNS_API_KEY_ARN: unsApiKeySecret.secretArn,
+      },
+      retentionDays: logs.RetentionDays.ONE_WEEK,
+      runtime: cdk.aws_lambda.Runtime.NODEJS_LATEST,
+      skipCheckovRule: 'CKV_AWS_59',
+    });
+
+    this.eventStoreTable = this.dynamoFactory.createTableWithStream(
+      'EventSourceTable',
+      {
+        name: constants.TABLE_NAME_VARIABLE,
+        partitionKey: 'eventID',
+        sortKey: 'compositeKey',
+        globalSecondaryIndexes: [
+          {
+            indexName: 'timestamp-query',
+            partitionKeyName: 'compositeKey',
+            partitionKeyType: AttributeType.STRING,
+            sortKeyName: 'eventTimestamp',
+            sortKeyType: AttributeType.STRING,
+          },
+        ],
+        pointInTimeRecovery: false,
+        removalPolicy: isEphemeralEnvironment()
+          ? cdk.RemovalPolicy.DESTROY
+          : cdk.RemovalPolicy.RETAIN,
+        streamConsumer: {
+          streamFunction: singleEventLambda,
+        },
+      },
+    );
+
+    this.grantUnsAccess(singleEventLambda, {
+      certArn: certSecret,
+      keyArn: keySecret,
+      apiKeySecret: unsApiKeySecret,
+      kmsKeyArn: kmsArn,
+    });
 
     (['hourly', 'daily', 'weekly'] as ScheduleFrequency[]).map(
       (frequency: ScheduleFrequency) => {
