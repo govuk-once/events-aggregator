@@ -68,9 +68,12 @@
   "dependencies": {
     "@aws-lambda-powertools/logger": "^2.34.0",
     "@aws-lambda-powertools/parameters": "^2.34.0",
+    "@aws-sdk/client-dynamodb": "^3.1100.0",
     "@aws-sdk/client-secrets-manager": "^3.1093.0",
+    "@aws-sdk/client-sqs": "^3.1100.0",
     "@aws-sdk/client-ssm": "^3.1093.0",
     "@aws-sdk/credential-providers": "^3.1092.0",
+    "@aws-sdk/lib-dynamodb": "^3.1100.0",
     "@aws-sdk/types": "^3.974.2",
     "aws-cdk-lib": "2.215.0",
     "aws-sigv4-fetch": "^4.4.1",
