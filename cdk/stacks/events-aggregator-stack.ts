@@ -174,6 +174,7 @@ export class EventsAggregatorStack extends cdk.Stack {
         name: 'pollTravelContent',
         environment: {
           INCOMING_EVENTS_QUEUE_URL: incomingEventsQueue.queue.queueName,
+          SOURCE_TABLE_NAME: this.sourceSourceTable.tableName,
         },
         retentionDays: logs.RetentionDays.ONE_WEEK,
         runtime: cdk.aws_lambda.Runtime.NODEJS_LATEST,
