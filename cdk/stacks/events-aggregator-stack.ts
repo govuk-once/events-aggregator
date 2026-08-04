@@ -43,7 +43,7 @@ export interface EventsAggregatorStackProps extends cdk.StackProps {
 
 const constants = {
   SOURCE_STORE_TABLE_NAME_VARIABLE: 'sourceStore',
-  TABLE_NAME_VARIABLE: 'eventsSource',
+  TABLE_NAME_VARIABLE: 'eventsStore',
 };
 
 export class EventsAggregatorStack extends cdk.Stack {
