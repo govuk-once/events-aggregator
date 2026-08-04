@@ -1,8 +1,8 @@
 import { build } from 'esbuild';
 
 await build({
-  entryPoints: ['src/travel-alerts/index.ts'],
-  outdir: 'dist/travel-alerts',
+  entryPoints: ['src/travel-digestion/index.ts'],
+  outdir: 'dist/travel-digestion',
   bundle: true,
   platform: 'node',
   target: 'node22',

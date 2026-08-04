@@ -18,7 +18,16 @@ import {
   ScheduleFrequency,
 } from '../cdk_constructs/EventBridgeScheduleFactory';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
-import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
+import { ISecret, Secret } from 'aws-cdk-lib/aws-secretsmanager';
+import { ITable } from 'aws-cdk-lib/aws-dynamodb';
+import { DynamoDbTableFactory } from '../cdk_constructs/DynamoTableFactory';
+
+interface IUnsConfig {
+  certArn: ISecret;
+  keyArn: ISecret;
+  kmsKeyArn: string;
+  apiKeySecret: ISecret;
+}
 
 export interface EventsAggregatorStackProps extends cdk.StackProps {
   serviceName: string;
@@ -29,7 +38,19 @@ export interface EventsAggregatorStackProps extends cdk.StackProps {
   costCenter: string;
 }
 
+const constants = {
+  SOURCE_STORE_TABLE_NAME_VARIABLE: 'sourceStore',
+  TABLE_NAME_VARIABLE: 'eventsSource',
+};
+
 export class EventsAggregatorStack extends cdk.Stack {
+  public readonly sourceSourceTable: ITable;
+
+  private readonly dynamoFactory = new DynamoDbTableFactory(
+    this,
+    'DyanamoTable',
+  );
+
   constructor(scope: Construct, id: string, props: EventsAggregatorStackProps) {
     super(scope, id, props);
 
@@ -69,6 +90,18 @@ export class EventsAggregatorStack extends cdk.Stack {
         : cdk.RemovalPolicy.RETAIN,
     });
 
+    this.sourceSourceTable = this.dynamoFactory.createTable(
+      'EventSourceTable',
+      {
+        name: constants.SOURCE_STORE_TABLE_NAME_VARIABLE,
+        partitionKey: 'sourceID',
+        pointInTimeRecovery: false,
+        removalPolicy: isEphemeralEnvironment()
+          ? cdk.RemovalPolicy.DESTROY
+          : cdk.RemovalPolicy.RETAIN,
+      },
+    );
+
     const lambdaFactory = new LambdaFactory(this, 'EventsAggregator');
 
     const eventBridgeFactory = new EventBridgeScheduleFactory(
@@ -100,18 +133,18 @@ export class EventsAggregatorStack extends cdk.Stack {
       }),
     );
 
-    const lambdaFunction = lambdaFactory.createLambda(
-      'PollTravelContentLambda',
+    const travelDigestionLambda = lambdaFactory.createLambda(
+      'TravelDigestionLambda',
       {
         code: lambda.Code.fromAsset(
-          join(__dirname, '../../dist/travel-alerts'),
+          join(__dirname, '../../dist/travel-digestion'),
         ),
         description: 'Polls the content api and sends events to UNS',
         duration: 10,
         key: logKey,
         handler: 'index.handler',
         memorySize: 128,
-        name: 'pollTravelContent',
+        name: 'travel-digestion',
         environment: {
           SSM_PREFIX: sharedNamespace,
           UNS_API_KEY_ARN: unsApiKeySecret.secretArn,
@@ -122,44 +155,23 @@ export class EventsAggregatorStack extends cdk.Stack {
       },
     );
 
-    lambdaFunction.addToRolePolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: ['kms:Decrypt'],
-        resources: [kmsArn],
-      }),
-    );
+    this.grantUnsAccess(travelDigestionLambda, {
+      certArn: certSecret,
+      keyArn: keySecret,
+      apiKeySecret: unsApiKeySecret,
+      kmsKeyArn: kmsArn,
+    });
 
-    lambdaFunction.addToRolePolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: [
-          'secretsmanager:DescribeSecret',
-          'secretsmanager:GetSecretValue',
-        ],
-        resources: [cert, key],
-      }),
-    );
-
-    lambdaFunction.addToRolePolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: ['ssm:GetParameter', 'ssm:GetParametersByPath'],
-        resources: [
-          `arn:aws:ssm:${this.region}:${this.account}:parameter/${sharedNamespace}/*`,
-        ],
-      }),
-    );
-
-    certSecret.grantRead(lambdaFunction);
-    keySecret.grantRead(lambdaFunction);
-    unsApiKeySecret.grantRead(lambdaFunction);
+    this.sourceSourceTable.grantReadWriteData(travelDigestionLambda);
+    certSecret.grantRead(travelDigestionLambda);
+    keySecret.grantRead(travelDigestionLambda);
+    unsApiKeySecret.grantRead(travelDigestionLambda);
 
     (['hourly', 'daily', 'weekly'] as ScheduleFrequency[]).map(
       (frequency: ScheduleFrequency) => {
         eventBridgeFactory.createScheduledRule(`${frequency}-schedule`, {
           name: `${frequency.toUpperCase()}TravelSchedule`,
-          targetFunction: lambdaFunction,
+          targetFunction: travelDigestionLambda,
           frequency,
           enabled: true,
           eventPayload: {
@@ -170,5 +182,40 @@ export class EventsAggregatorStack extends cdk.Stack {
         });
       },
     );
+  }
+
+  private grantUnsAccess(fn: lambda.Function, uns: IUnsConfig): void {
+    fn.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['ssm:GetParameter', 'ssm:GetParametersByPath'],
+        resources: [
+          `arn:aws:ssm:${this.region}:${this.account}:parameter/${this.sharedNamespace}/*`,
+        ],
+      }),
+    );
+
+    fn.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'secretsmanager:DescribeSecret',
+          'secretsmanager:GetSecretValue',
+        ],
+        resources: [uns.certArn.secretArn, uns.keyArn.secretArn],
+      }),
+    );
+
+    fn.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['kms:Decrypt'],
+        resources: [uns.kmsKeyArn],
+      }),
+    );
+
+    uns.certArn.grantRead(fn);
+    uns.keyArn.grantRead(fn);
+    uns.apiKeySecret.grantRead(fn);
   }
 }
