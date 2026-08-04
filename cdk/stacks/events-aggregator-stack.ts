@@ -189,7 +189,7 @@ export class EventsAggregatorStack extends cdk.Stack {
     });
 
     this.eventStoreTable = this.dynamoFactory.createTableWithStream(
-      'EventSourceTable',
+      'EventStoreTable',
       {
         name: constants.TABLE_NAME_VARIABLE,
         partitionKey: 'eventID',
