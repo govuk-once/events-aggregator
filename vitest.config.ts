@@ -10,7 +10,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
-      include: ['src/**', 'cdk/**'],
+      include: ['src/**'],
       exclude: ['**/*.test.ts', '**/*.d.ts', 'node_modules/**', 'dist/**'],
     },
   },
