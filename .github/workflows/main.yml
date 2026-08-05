@@ -23,7 +23,7 @@ jobs:
   SeedDev:
     name: Seed dev data
     needs: DeployToDev
-    uses: ./.github/workflows/__seed-data.yml
+    uses: ./.github/workflows/_seed_data.yml
     with:
       environment-name: development
       service-name: travel-alerts
