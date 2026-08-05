@@ -67,6 +67,9 @@ jobs:
         id: pnpm-version
         run: echo "pnpm_version=$(jq -r '.packageManager' package.json)" >> $GITHUB_OUTPUT
 
+      - name: Install pnpm
+        run: npm install -g ${{ steps.pnpm-version.outputs.pnpm_version }}
+
       - name: setup node
         uses: actions/setup-node@8f152de45cc393bb48ce5d89d36b731f54556e65 #v4.0
         with:
