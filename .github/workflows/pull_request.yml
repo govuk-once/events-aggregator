@@ -31,6 +31,7 @@ jobs:
     uses: ./.github/workflows/_seed_data.yml
     with:
       environment-name: development
-      service-name: travel-alerts
+      service-name: dynamotable
+      table-name: runner-dynamotable-sourceStore
     secrets:
       DEPLOYMENT_ROLE: ${{ secrets.DEV_DEPLOYMENT_ROLE }}

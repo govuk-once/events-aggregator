@@ -54,7 +54,7 @@ export class EventsAggregatorStack extends cdk.Stack {
 
   private readonly dynamoFactory = new DynamoDbTableFactory(
     this,
-    'DyanamoTable',
+    'DynamoTable',
   );
 
   private readonly sqsFactory = new SqsQueueFactory(this, 'SqsEvents');
