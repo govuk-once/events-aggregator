@@ -659,7 +659,9 @@ export async function main(argv?: string[]): Promise<void> {
 function isEntrypoint(): boolean {
   const entry = process.argv[1];
   if (!entry) return false;
-  return basename(entry).replace(/\.[cm]?[jt]s$/, '') === 'seed-travel-events-source';
+  return (
+    basename(entry).replace(/\.[cm]?[jt]s$/, '') === 'seed-travel-events-source'
+  );
 }
 
 if (isEntrypoint()) {
@@ -673,5 +675,3 @@ if (isEntrypoint()) {
     process.exit(1);
   });
 }
-
-
