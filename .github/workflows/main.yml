@@ -20,6 +20,16 @@ jobs:
     with:
       environment: development
 
+  SeedDev:
+    name: Seed dev data
+    needs: DeployToDev
+    uses: ./.github/workflows/__seed-data.yml
+    with:
+      environment-name: development
+      service-name: travel-alerts
+    secrets:
+      DEPLOYMENT_ROLE: ${{ secrets.DEV_DEPLOYMENT_ROLE }}
+
   # DeployToStaging:
   #   name: 🛠️  Deploy To Staging Env
   #   needs: QualityChecks

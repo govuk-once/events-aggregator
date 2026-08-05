@@ -27,7 +27,7 @@ jobs:
 
   SeedDev:
     name: Seed dev data
-    needs: deploy-dev
+    needs: DeployToDev
     uses: ./.github/workflows/__seed-data.yml
     with:
       environment-name: development
