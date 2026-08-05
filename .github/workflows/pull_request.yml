@@ -24,3 +24,13 @@ jobs:
     uses: ./.github/workflows/_build_deploy.yml
     with:
       environment: development
+
+  SeedDev:
+    name: Seed dev data
+    needs: deploy-dev
+    uses: ./.github/workflows/__seed-data.yml
+    with:
+      environment-name: development
+      service-name: travel-alerts
+    secrets:
+      DEPLOYMENT_ROLE: ${{ secrets.DEV_DEPLOYMENT_ROLE }}
