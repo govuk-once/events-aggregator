@@ -102,7 +102,17 @@ export class EventsAggregatorStack extends cdk.Stack {
       {
         name: constants.SOURCE_STORE_TABLE_NAME_VARIABLE,
         partitionKey: 'sourceID',
+        sortKey: 'sourceGroup',
         pointInTimeRecovery: false,
+        globalSecondaryIndexes: [
+          {
+            indexName: 'source-query',
+            partitionKeyName: 'sourceNamespace',
+            partitionKeyType: AttributeType.STRING,
+            sortKeyName: 'sourceGroup',
+            sortKeyType: AttributeType.STRING,
+          },
+        ],
         removalPolicy: isEphemeralEnvironment()
           ? cdk.RemovalPolicy.DESTROY
           : cdk.RemovalPolicy.RETAIN,

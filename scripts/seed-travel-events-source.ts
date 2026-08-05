@@ -78,7 +78,7 @@ export class UsageError extends Error {
 
 export function usageText(): string {
   return `
-Usage: npx tsx seed-countries.ts [OPTIONS]
+Usage: npx tsx seed-travel-events-source.ts [OPTIONS]
 
 Target table (one of):
  --table <name> Explicit table name, skips derivation (env TABLE_NAME)
@@ -659,7 +659,7 @@ export async function main(argv?: string[]): Promise<void> {
 function isEntrypoint(): boolean {
   const entry = process.argv[1];
   if (!entry) return false;
-  return basename(entry).replace(/\.[cm]?[jt]s$/, '') === 'seed-countries';
+  return basename(entry).replace(/\.[cm]?[jt]s$/, '') === 'seed-travel-events-source';
 }
 
 if (isEntrypoint()) {
@@ -673,3 +673,5 @@ if (isEntrypoint()) {
     process.exit(1);
   });
 }
+
+
