@@ -1,13 +1,15 @@
-import type { NotificationPayload, TravelAlertScheduleEvent } from '@/types';
+import { getEventSourceByCompositeKeys } from '@/services/eventSources';
+import type { TravelAlertScheduleEvent } from '@/types';
 import {
   getCountryChanges,
-  getNotificationPayload,
-  getSmmSecret,
+  getEventsFromCountry,
   getStartTime,
   getTravelChangesSince,
 } from '@/utils';
-import { getParameter, SsmParameters } from '@/utils/ssm-client';
-import { createUnsMtlsClientFromSecrets } from '@/utils/uns-client';
+import {
+  sendIncomingEventToQueue,
+  travelEventToIncomingEvent,
+} from '@/utils/sqs';
 import { Logger } from '@aws-lambda-powertools/logger';
 
 const logger = new Logger();
@@ -26,24 +28,14 @@ export const handler = async (event: TravelAlertScheduleEvent) => {
       });
       return false;
     }
-    const unsPayload: NotificationPayload[] = [];
-    for (const { link } of travelChanges.results) {
-      const country = await getCountryChanges(link);
 
-      const countryPayload = getNotificationPayload(
-        country,
-        startTime,
-        'instant',
-      );
+    const compositeKeys: string[] = travelChanges.results.map(
+      ({ link }) => `travel/${link.split('/').at(link.split('/').length - 1)}`,
+    );
 
-      if (countryPayload) {
-        unsPayload.push(countryPayload);
-      }
-    }
-
-    if (unsPayload.length < 1) {
+    if (!compositeKeys || compositeKeys?.length < 1) {
       logger.info({
-        message: `No country changes detected in content API`,
+        message: `No sources detected`,
         triggeredAt: event.triggeredAt,
         schedule: event.schedule,
         startTime,
@@ -51,31 +43,39 @@ export const handler = async (event: TravelAlertScheduleEvent) => {
       return false;
     }
 
-    const [apiUrl, certSecretArn, keySecretArn] = await Promise.all([
-      getParameter(SsmParameters.UnsApiUrl),
-      getParameter(SsmParameters.UnsMtlsCertArn),
-      getParameter(SsmParameters.UnsMtlsKeyArn),
-    ]);
+    const sources = await getEventSourceByCompositeKeys(
+      compositeKeys,
+      process.env.SOURCE_TABLE_NAME as string,
+    );
 
-    const apiKeySecretArn = process.env.UNS_API_KEY_ARN as string;
-    const apiKey = await getSmmSecret(apiKeySecretArn);
+    for (const { URL, sourceEnabled } of sources) {
+      if (!sourceEnabled) return;
 
-    const uns = await createUnsMtlsClientFromSecrets({
-      apiUrl,
-      certSecretArn,
-      keySecretArn,
-      apiKey,
-    });
+      const country = await getCountryChanges(URL);
 
-    const result = await uns.notification.sendToSubscribers(unsPayload);
-    if (!result.ok) {
-      logger.error({
-        message: `Error from uns api`,
-        result: result,
-        triggeredAt: event.triggeredAt,
-        schedule: event.schedule,
-      });
-      throw new Error('UNS error');
+      const countryChanges = getEventsFromCountry(country, startTime);
+
+      if (!countryChanges || countryChanges?.length < 1) {
+        logger.info({
+          message: `No country changes detected in content API`,
+          triggeredAt: event.triggeredAt,
+          schedule: event.schedule,
+          startTime,
+        });
+        return false;
+      }
+
+      const countryDetails = country.details;
+
+      if (countryChanges && countryChanges?.length > 0) {
+        for (const change of countryChanges) {
+          const event = travelEventToIncomingEvent(change, countryDetails);
+          await sendIncomingEventToQueue(
+            event,
+            process.env.INCOMING_EVENTS_QUEUE_URL as string,
+          );
+        }
+      }
     }
 
     return true;
