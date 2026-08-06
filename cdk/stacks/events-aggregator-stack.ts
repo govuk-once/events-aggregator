@@ -24,6 +24,7 @@ import {
   DynamoDbTableFactory,
   ITableWithStream,
 } from '../cdk_constructs/DynamoTableFactory';
+import { SqsQueueFactory } from '../cdk_constructs/SqsQueueFactory';
 
 interface IUnsConfig {
   certArn: ISecret;
@@ -55,6 +56,8 @@ export class EventsAggregatorStack extends cdk.Stack {
     this,
     'DyanamoTable',
   );
+
+  private readonly sqsFactory = new SqsQueueFactory(this, 'SqsEvents');
 
   constructor(scope: Construct, id: string, props: EventsAggregatorStackProps) {
     super(scope, id, props);
@@ -106,6 +109,17 @@ export class EventsAggregatorStack extends cdk.Stack {
       },
     );
 
+    const incomingEventsQueue = this.sqsFactory.createQueueWithDeadLetter(
+      'IncomingEventsQueue',
+      {
+        name: 'incoming-events',
+        fifo: true,
+        contentBasedDeduplication: true,
+        visibilityTimeout: cdk.Duration.seconds(60),
+        maxReceiveCount: 3,
+      },
+    );
+
     const lambdaFactory = new LambdaFactory(this, 'EventsAggregator');
 
     const eventBridgeFactory = new EventBridgeScheduleFactory(
@@ -152,6 +166,8 @@ export class EventsAggregatorStack extends cdk.Stack {
         environment: {
           SSM_PREFIX: this.sharedNamespace,
           UNS_API_KEY_ARN: unsApiKeySecret.secretArn,
+          INCOMING_EVENTS_QUEUE_URL: incomingEventsQueue.queue.queueName,
+          SOURCE_TABLE_NAME: this.sourceSourceTable.tableName,
           POWERTOOLS_SERVICE_NAME: 'events-aggregator-travel-digestion',
           POWERTOOLS_METRICS_NAMESPACE: 'EventsAggregator',
         },
@@ -169,9 +185,10 @@ export class EventsAggregatorStack extends cdk.Stack {
     });
 
     this.sourceSourceTable.grantReadWriteData(travelDigestionLambda);
-    certSecret.grantRead(travelDigestionLambda);
-    keySecret.grantRead(travelDigestionLambda);
-    unsApiKeySecret.grantRead(travelDigestionLambda);
+    incomingEventsQueue.queue.grantSendMessages(travelDigestionLambda);
+    incomingEventsQueue.deadLetterQueue.grantSendMessages(
+      travelDigestionLambda,
+    );
 
     const singleEventLambda = lambdaFactory.createLambda('SingleEventLambda', {
       code: lambda.Code.fromAsset(join(__dirname, '../../dist/single-event')),
