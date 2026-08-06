@@ -2,6 +2,9 @@ import { describe, it, vi, afterAll, expect, afterEach } from 'vitest';
 import { handler } from '.';
 import { getSecret } from '@aws-lambda-powertools/parameters/secrets';
 import { Logger } from '@aws-lambda-powertools/logger';
+import { MetricUnit } from '@aws-lambda-powertools/metrics';
+import type { Context } from 'aws-lambda';
+import { metrics } from '../utils/observability';
 
 import nock from 'nock';
 
@@ -57,10 +60,36 @@ const mockGetSecret = vi.mocked(getSecret) as unknown as ReturnType<
   typeof vi.fn
 >;
 
+const mockContext: Context = {
+  callbackWaitsForEmptyEventLoop: false,
+  functionName: 'events-aggregator-travel-digestion',
+  functionVersion: '$LATEST',
+  invokedFunctionArn:
+    'arn:aws:lambda:eu-west-2:123456789012:function:travel-digestion',
+  memoryLimitInMB: '128',
+  awsRequestId: 'test-request-id',
+  logGroupName: '/aws/lambda/travel-digestion',
+  logStreamName: 'test-log-stream',
+  getRemainingTimeInMillis: vi.fn().mockReturnValue(30_000),
+  done: vi.fn(),
+  fail: vi.fn(),
+  succeed: vi.fn(),
+};
+
+const metricsAddSpy = vi.spyOn(metrics, 'addMetric');
+
+const metricsPublishSpy = vi
+  .spyOn(metrics, 'publishStoredMetrics')
+  .mockImplementation(() => metrics);
+
 describe('Travel Alerts Schedule', () => {
   afterEach(() => {
     loggerInfoSpy.mockClear();
     loggerErrorSpy.mockClear();
+    metricsAddSpy.mockClear();
+    metricsPublishSpy.mockClear();
+    sendMock.mockClear();
+    mockGetSecret.mockClear();
   });
 
   afterAll(() => {
@@ -144,19 +173,48 @@ describe('Travel Alerts Schedule', () => {
       ])
       .reply(200, {}, { content_type: 'application/json' });
 
-    const response = await handler({
-      triggeredAt: '2026-07-20',
-      schedule: 'daily',
-    });
+    const response = await handler(
+      {
+        triggeredAt: '2026-07-20',
+        schedule: 'daily',
+      },
+      mockContext,
+    );
 
     expect(response).toBe(true);
+
+    expect(metricsAddSpy).toHaveBeenCalledWith(
+      'TravelAdviceResultsRetrieved',
+      MetricUnit.Count,
+      1,
+    );
+
+    expect(metricsAddSpy).toHaveBeenCalledWith(
+      'NotificationPayloadsCreated',
+      MetricUnit.Count,
+      1,
+    );
+
+    expect(metricsAddSpy).toHaveBeenCalledWith(
+      'NotificationsSubmitted',
+      MetricUnit.Count,
+      1,
+    );
+
+    expect(metricsAddSpy).not.toHaveBeenCalledWith(
+      'NotificationSubmissionFailures',
+      MetricUnit.Count,
+      expect.any(Number),
+    );
+
+    expect(metricsPublishSpy).toHaveBeenCalledTimes(1);
 
     scope.done();
     contentScope.done();
     unsScope.done();
   });
 
-  it('should log info if the search api returns not results', async () => {
+  it('should log info if the search api returns no results', async () => {
     const scope = nock('https://www.gov.uk')
       .get('/api/search.json')
       .query(true)
@@ -168,10 +226,13 @@ describe('Travel Alerts Schedule', () => {
         { content_type: 'application/json' },
       );
 
-    await handler({
-      triggeredAt: '2027-07-20',
-      schedule: 'daily',
-    });
+    await handler(
+      {
+        triggeredAt: '2027-07-20',
+        schedule: 'daily',
+      },
+      mockContext,
+    );
 
     expect(loggerInfoSpy).toHaveBeenCalledWith({
       message: 'No travel changes found',
@@ -179,6 +240,26 @@ describe('Travel Alerts Schedule', () => {
       startTime: '2027-07-19T00:00:00.000Z',
       triggeredAt: '2027-07-20',
     });
+
+    expect(metricsAddSpy).toHaveBeenCalledWith(
+      'TravelAdviceResultsRetrieved',
+      MetricUnit.Count,
+      0,
+    );
+
+    expect(metricsAddSpy).not.toHaveBeenCalledWith(
+      'NotificationPayloadsCreated',
+      MetricUnit.Count,
+      expect.any(Number),
+    );
+
+    expect(metricsAddSpy).not.toHaveBeenCalledWith(
+      'NotificationsSubmitted',
+      MetricUnit.Count,
+      expect.any(Number),
+    );
+
+    expect(metricsPublishSpy).toHaveBeenCalledTimes(1);
 
     scope.done();
   });
@@ -216,10 +297,13 @@ describe('Travel Alerts Schedule', () => {
         { content_type: 'application/json' },
       );
 
-    await handler({
-      triggeredAt: '2027-07-20',
-      schedule: 'daily',
-    });
+    await handler(
+      {
+        triggeredAt: '2027-07-20',
+        schedule: 'daily',
+      },
+      mockContext,
+    );
 
     expect(loggerInfoSpy).toHaveBeenCalledWith({
       message: 'No country changes detected in content API',
@@ -227,6 +311,26 @@ describe('Travel Alerts Schedule', () => {
       startTime: '2027-07-19T00:00:00.000Z',
       triggeredAt: '2027-07-20',
     });
+
+    expect(metricsAddSpy).toHaveBeenCalledWith(
+      'TravelAdviceResultsRetrieved',
+      MetricUnit.Count,
+      1,
+    );
+
+    expect(metricsAddSpy).toHaveBeenCalledWith(
+      'NotificationPayloadsCreated',
+      MetricUnit.Count,
+      0,
+    );
+
+    expect(metricsAddSpy).not.toHaveBeenCalledWith(
+      'NotificationsSubmitted',
+      MetricUnit.Count,
+      expect.any(Number),
+    );
+
+    expect(metricsPublishSpy).toHaveBeenCalledTimes(1);
 
     scope.done();
     contentScope.done();
@@ -243,10 +347,13 @@ describe('Travel Alerts Schedule', () => {
       );
 
     await expect(
-      handler({
-        triggeredAt: '2027-07-20',
-        schedule: 'daily',
-      }),
+      handler(
+        {
+          triggeredAt: '2027-07-20',
+          schedule: 'daily',
+        },
+        mockContext,
+      ),
     ).rejects.toThrow();
 
     expect(loggerErrorSpy).toHaveBeenCalledWith({
@@ -254,6 +361,14 @@ describe('Travel Alerts Schedule', () => {
       schedule: 'daily',
       triggeredAt: '2027-07-20',
     });
+
+    expect(metricsAddSpy).not.toHaveBeenCalledWith(
+      'TravelAdviceResultsRetrieved',
+      MetricUnit.Count,
+      expect.any(Number),
+    );
+
+    expect(metricsPublishSpy).toHaveBeenCalledTimes(1);
 
     scope.done();
   });
@@ -284,10 +399,13 @@ describe('Travel Alerts Schedule', () => {
       );
 
     await expect(
-      handler({
-        triggeredAt: '2027-07-20',
-        schedule: 'daily',
-      }),
+      handler(
+        {
+          triggeredAt: '2027-07-20',
+          schedule: 'daily',
+        },
+        mockContext,
+      ),
     ).rejects.toThrow();
 
     expect(loggerErrorSpy).toHaveBeenCalledWith({
@@ -296,7 +414,109 @@ describe('Travel Alerts Schedule', () => {
       triggeredAt: '2027-07-20',
     });
 
+    expect(metricsAddSpy).toHaveBeenCalledWith(
+      'TravelAdviceResultsRetrieved',
+      MetricUnit.Count,
+      1,
+    );
+
+    expect(metricsAddSpy).not.toHaveBeenCalledWith(
+      'NotificationPayloadsCreated',
+      MetricUnit.Count,
+      expect.any(Number),
+    );
+
+    expect(metricsPublishSpy).toHaveBeenCalledTimes(1);
+
     scope.done();
     contentScope.done();
+  });
+
+  it('should record a metric when UNS returns an unsuccessful response', async () => {
+    sendMock.mockResolvedValueOnce({
+      Parameters: [
+        {
+          Name: '/prefix/uns-api-url',
+          Value: 'http://uns.api',
+        },
+        {
+          Name: '/prefix/uns-api-key',
+          Value: 'api_key',
+        },
+        {
+          Name: '/prefix/uns-mtls-cert-arn',
+          Value: 'arn::cert',
+        },
+        {
+          Name: '/prefix/uns-mtls-key-arn',
+          Value: 'arn:key',
+        },
+      ],
+    });
+
+    mockGetSecret.mockResolvedValue('-----BEGIN');
+
+    const searchScope = nock('https://www.gov.uk')
+      .get('/api/search.json')
+      .query(true)
+      .reply(200, {
+        results: [
+          {
+            link: '/travel-advice/spain',
+          },
+        ],
+      });
+
+    const contentScope = nock('https://www.gov.uk')
+      .get('/api/content/travel-advice/spain')
+      .query(true)
+      .reply(200, {
+        details: {
+          change_history: [
+            {
+              note: 'A change has happened',
+              public_timestamp: '2026-07-21T10:10:00Z',
+            },
+          ],
+          country: {
+            name: 'Spain',
+            slug: 'spain',
+          },
+        },
+      });
+
+    const unsScope = nock('http://uns.api')
+      .post('/v1/send-to-group')
+      .reply(500, {
+        message: 'UNS unavailable',
+      });
+
+    await expect(
+      handler(
+        {
+          triggeredAt: '2026-07-20',
+          schedule: 'daily',
+        },
+        mockContext,
+      ),
+    ).rejects.toThrow('UNS error');
+
+    expect(metricsAddSpy).toHaveBeenCalledWith(
+      'NotificationSubmissionFailures',
+      MetricUnit.Count,
+      1,
+    );
+
+    expect(metricsAddSpy).not.toHaveBeenCalledWith(
+      'NotificationsSubmitted',
+      MetricUnit.Count,
+      expect.any(Number),
+    );
+
+    expect(metricsPublishSpy).toHaveBeenCalledTimes(1);
+
+    searchScope.done();
+    contentScope.done();
+    unsScope.done();
   });
 });

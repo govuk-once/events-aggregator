@@ -1,41 +1,96 @@
 // import { getSmmSecret } from '@/utils';
 // import { getParameter, SsmParameters } from '@/utils/ssm-client';
 // import { createUnsMtlsClientFromSecrets } from '@/utils/uns-client';
-import { Logger } from '@aws-lambda-powertools/logger';
-import { DynamoDBStreamEvent } from 'aws-lambda';
+import { MetricUnit } from '@aws-lambda-powertools/metrics';
+import type { Context, DynamoDBStreamEvent } from 'aws-lambda';
 
-const logger = new Logger();
+import { logger, metrics, tracer } from '@/utils/observability';
 
-export const handler = async (event: DynamoDBStreamEvent) => {
-  logger.info('single-event', { event });
+export const handler = async (event: DynamoDBStreamEvent, context: Context) => {
+  logger.addContext(context);
 
-  // temp commented out copied from the original solution this will prob be part of this solution
-  // const [apiUrl, certSecretArn, keySecretArn] = await Promise.all([
-  //   getParameter(SsmParameters.UnsApiUrl),
-  //   getParameter(SsmParameters.UnsMtlsCertArn),
-  //   getParameter(SsmParameters.UnsMtlsKeyArn),
-  // ]);
+  const parentSegment = tracer.getSegment();
+  const handlerSubsegment =
+    parentSegment?.addNewSubsegment('ProcessEventStore');
 
-  // const apiKeySecretArn = process.env.UNS_API_KEY_ARN as string;
-  // const apiKey = await getSmmSecret(apiKeySecretArn);
+  if (handlerSubsegment) {
+    tracer.setSegment(handlerSubsegment);
+    tracer.annotateColdStart();
+    tracer.addServiceNameAnnotation();
+  }
 
-  // const uns = await createUnsMtlsClientFromSecrets({
-  //   apiUrl,
-  //   certSecretArn,
-  //   keySecretArn,
-  //   apiKey,
-  // });
+  try {
+    const recordCount = event.Records.length;
 
-  // const result = await uns.notification.sendToSubscribers([]);
-  // if (!result.ok) {
-  //   logger.error({
-  //     message: `Error from uns api`,
-  //     result: result,
-  //     triggeredAt: event.triggeredAt,
-  //     schedule: event.schedule,
-  //   });
-  //   throw new Error('UNS error');
-  // }
+    tracer.putAnnotation('RecordCount', recordCount);
 
-  return true;
+    logger.info('single-event', { event });
+
+    metrics.addMetric(
+      'EventStoreRecordsReceived',
+      MetricUnit.Count,
+      recordCount,
+    );
+
+    // temp commented out copied from the original solution this will prob be part of this solution
+    // const [apiUrl, certSecretArn, keySecretArn] = await Promise.all([
+    //   getParameter(SsmParameters.UnsApiUrl),
+    //   getParameter(SsmParameters.UnsMtlsCertArn),
+    //   getParameter(SsmParameters.UnsMtlsKeyArn),
+    // ]);
+
+    // const apiKeySecretArn = process.env.UNS_API_KEY_ARN as string;
+    // const apiKey = await getSmmSecret(apiKeySecretArn);
+
+    // const uns = await createUnsMtlsClientFromSecrets({
+    //   apiUrl,
+    //   certSecretArn,
+    //   keySecretArn,
+    //   apiKey,
+    // });
+
+    // const result = await uns.notification.sendToSubscribers([]);
+    // if (!result.ok) {
+    //   logger.error({
+    //     message: `Error from uns api`,
+    //     result: result,
+    //     triggeredAt: event.triggeredAt,
+    //     schedule: event.schedule,
+    //   });
+    //   throw new Error('UNS error');
+    // }
+
+    // TODO: Once record processing is implemented, emit:
+    // metrics.addMetric(
+    //   'EventStoreRecordsProcessed',
+    //   MetricUnit.Count,
+    //   processedRecordCount,
+    // );
+
+    return true;
+  } catch (error: unknown) {
+    const handledError =
+      error instanceof Error
+        ? error
+        : new Error('Unknown EventStore processing error', {
+            cause: error,
+          });
+
+    handlerSubsegment?.addError(handledError);
+    tracer.addErrorAsMetadata(handledError);
+
+    logger.error('Failed to process EventStore stream records', {
+      error: handledError,
+    });
+
+    throw error;
+  } finally {
+    handlerSubsegment?.close();
+
+    if (parentSegment) {
+      tracer.setSegment(parentSegment);
+    }
+
+    metrics.publishStoredMetrics();
+  }
 };
