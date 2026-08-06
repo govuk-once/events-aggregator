@@ -102,14 +102,14 @@ export class EventsAggregatorStack extends cdk.Stack {
       {
         name: constants.SOURCE_STORE_TABLE_NAME_VARIABLE,
         partitionKey: 'sourceID',
-        sortKey: 'sourceGroup',
+        sortKey: 'compositeKey',
         pointInTimeRecovery: false,
         globalSecondaryIndexes: [
           {
-            indexName: 'source-query',
-            partitionKeyName: 'sourceNamespace',
+            indexName: 'composite-query',
+            partitionKeyName: 'compositeKey',
             partitionKeyType: AttributeType.STRING,
-            sortKeyName: 'sourceGroup',
+            sortKeyName: 'lastUpdated',
             sortKeyType: AttributeType.STRING,
           },
         ],

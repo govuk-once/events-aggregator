@@ -49,6 +49,7 @@ export type Source = {
   sourceID: string;
   sourceNamespace: string;
   sourceGroup: string;
+  compositeKey: string;
   accessMethod: 'api' | 'other';
   URL: string;
   sourceEnabled: boolean;
@@ -282,6 +283,7 @@ export function buildSource(slug: string, now: string): Source {
     sourceID: sourceIdFor(SOURCE_NAMESPACE, slug, URL),
     sourceNamespace: SOURCE_NAMESPACE,
     sourceGroup: slug,
+    compositeKey: `${SOURCE_NAMESPACE}/${slug}`,
     accessMethod: 'api',
     URL,
     sourceEnabled: true,

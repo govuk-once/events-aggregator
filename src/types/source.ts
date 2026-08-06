@@ -4,6 +4,7 @@ export type Source = {
   // Group details
   sourceNamespace: string;
   sourceGroup: string;
+  compositeKey: string; // combo of sourceNamespace/sourceGroup
   // Configuration
   accessMethod: 'api' | 'other';
   URL: string;
