@@ -379,7 +379,7 @@ export async function readExistingSources(
     let request = {
       Keys: keys.map((source) => ({
         sourceID: source.sourceID,
-        sourceGroup: source.sourceGroup,
+        compositeKey: `${source.sourceNamespace}/${source.sourceGroup}`,
       })),
       // A stale read would print a lying plan, and this output is the deploy
       // record of what was seeded.
