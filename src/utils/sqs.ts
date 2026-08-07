@@ -6,6 +6,7 @@ import {
   type SendMessageCommandOutput,
 } from '@aws-sdk/client-sqs';
 import { Logger } from '@aws-lambda-powertools/logger';
+import { v4 as uuidv4 } from 'uuid';
 
 const logger = new Logger();
 const sqs = new SQSClient({ region: 'eu-west-2' });
@@ -14,8 +15,9 @@ export const travelEventToIncomingEvent = (
   history: ChangeHistory,
   details: CountryDetails,
 ): IncomingEvent => {
+  const eventID = uuidv4();
   return {
-    eventID: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+    eventID,
     eventTimestamp: history.public_timestamp,
     // Group details
     namespace: 'travel',
