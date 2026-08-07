@@ -65,6 +65,7 @@
     "vitest": "^4.0.15"
   },
   "dependencies": {
+    "@aws-lambda-powertools/batch": "^2.34.0",
     "@aws-lambda-powertools/logger": "^2.34.0",
     "@aws-lambda-powertools/metrics": "^2.34.0",
     "@aws-lambda-powertools/parameters": "^2.34.0",

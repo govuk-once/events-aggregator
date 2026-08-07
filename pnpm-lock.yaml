@@ -7,6 +7,9 @@ settings:
 importers:
   .:
     dependencies:
+      '@aws-lambda-powertools/batch':
+        specifier: ^2.34.0
+        version: 2.34.0
       '@aws-lambda-powertools/logger':
         specifier: ^2.34.0
         version: 2.34.0
@@ -190,6 +193,12 @@ packages:
     resolution:
       {
         integrity: sha512-4RkU9EsI6ZpBve5fseQlGNUWKMa1RLPQ1dnjnQoe07ldfIzcsGb5hC5W0Dm7u423KWzawlrpbjXBrXCEv9zazQ==,
+      }
+
+  '@aws-lambda-powertools/batch@2.34.0':
+    resolution:
+      {
+        integrity: sha512-gVVd7cdkVywLiGy+dPIan/y346l65ptj0k8mNPJpj+ACNuXm6H7vU7EjHvsWV3lR30QTDvOEC1VWfVUJuAXKcA==,
       }
 
   '@aws-lambda-powertools/commons@2.34.0':
@@ -4666,6 +4675,12 @@ snapshots:
       '@aws-sdk/types': 3.974.2
       '@smithy/util-utf8': 2.3.0
       tslib: 2.8.1
+
+  '@aws-lambda-powertools/batch@2.34.0':
+    dependencies:
+      '@aws-lambda-powertools/commons': 2.34.0
+      '@aws/lambda-invoke-store': 0.3.0
+      '@standard-schema/spec': 1.1.0
 
   '@aws-lambda-powertools/commons@2.34.0':
     dependencies:

@@ -25,6 +25,7 @@ import {
   ITableWithStream,
 } from '../cdk_constructs/DynamoTableFactory';
 import { SqsQueueFactory } from '../cdk_constructs/SqsQueueFactory';
+import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 
 interface IUnsConfig {
   certArn: ISecret;
@@ -58,6 +59,7 @@ export class EventsAggregatorStack extends cdk.Stack {
   );
 
   private readonly sqsFactory = new SqsQueueFactory(this, 'SqsEvents');
+  private readonly lambdaFactory = new LambdaFactory(this, 'EventsAggregator');
 
   constructor(scope: Construct, id: string, props: EventsAggregatorStackProps) {
     super(scope, id, props);
@@ -130,8 +132,6 @@ export class EventsAggregatorStack extends cdk.Stack {
       },
     );
 
-    const lambdaFactory = new LambdaFactory(this, 'EventsAggregator');
-
     const eventBridgeFactory = new EventBridgeScheduleFactory(
       this,
       'EventBridgeSchedule',
@@ -161,7 +161,7 @@ export class EventsAggregatorStack extends cdk.Stack {
       }),
     );
 
-    const travelDigestionLambda = lambdaFactory.createLambda(
+    const travelDigestionLambda = this.lambdaFactory.createLambda(
       'TravelDigestionLambda',
       {
         code: lambda.Code.fromAsset(
@@ -200,24 +200,27 @@ export class EventsAggregatorStack extends cdk.Stack {
       travelDigestionLambda,
     );
 
-    const singleEventLambda = lambdaFactory.createLambda('SingleEventLambda', {
-      code: lambda.Code.fromAsset(join(__dirname, '../../dist/single-event')),
-      description: 'sends a single event to UNS',
-      duration: 10,
-      key: logKey,
-      handler: 'index.handler',
-      memorySize: 128,
-      name: 'single-event',
-      environment: {
-        SSM_PREFIX: this.sharedNamespace,
-        UNS_API_KEY_ARN: unsApiKeySecret.secretArn,
-        POWERTOOLS_SERVICE_NAME: 'events-aggregator-single-event',
-        POWERTOOLS_METRICS_NAMESPACE: 'EventsAggregator',
+    const singleEventLambda = this.lambdaFactory.createLambda(
+      'SingleEventLambda',
+      {
+        code: lambda.Code.fromAsset(join(__dirname, '../../dist/single-event')),
+        description: 'sends a single event to UNS',
+        duration: 10,
+        key: logKey,
+        handler: 'index.handler',
+        memorySize: 128,
+        name: 'single-event',
+        environment: {
+          SSM_PREFIX: this.sharedNamespace,
+          UNS_API_KEY_ARN: unsApiKeySecret.secretArn,
+          POWERTOOLS_SERVICE_NAME: 'events-aggregator-single-event',
+          POWERTOOLS_METRICS_NAMESPACE: 'EventsAggregator',
+        },
+        retentionDays: logs.RetentionDays.ONE_WEEK,
+        runtime: cdk.aws_lambda.Runtime.NODEJS_LATEST,
+        skipCheckovRule: 'CKV_AWS_59',
       },
-      retentionDays: logs.RetentionDays.ONE_WEEK,
-      runtime: cdk.aws_lambda.Runtime.NODEJS_LATEST,
-      skipCheckovRule: 'CKV_AWS_59',
-    });
+    );
 
     this.eventStoreTable = this.dynamoFactory.createTableWithStream(
       'EventStoreTable',
@@ -250,6 +253,33 @@ export class EventsAggregatorStack extends cdk.Stack {
       apiKeySecret: unsApiKeySecret,
       kmsKeyArn: kmsArn,
     });
+
+    const eventProcessingLambda = this.lambdaFactory.createLambda(
+      'EventProcessing',
+      {
+        code: lambda.Code.fromAsset(
+          join(__dirname, '../../dist/event-processing'),
+        ),
+        description: 'Processes the events from the SQS queue',
+        duration: 10,
+        key: logKey,
+        handler: 'index.handler',
+        memorySize: 128,
+        name: 'eventProcessing',
+        retentionDays: logs.RetentionDays.ONE_WEEK,
+        runtime: cdk.aws_lambda.Runtime.NODEJS_LATEST,
+        skipCheckovRule: 'CKV_AWS_59',
+      },
+    );
+
+    this.grantTableAccess(eventProcessingLambda, 'write');
+    eventProcessingLambda.addEventSource(
+      new SqsEventSource(incomingEventsQueue.queue, {
+        batchSize: 1,
+        reportBatchItemFailures: true,
+        maxConcurrency: 5,
+      }),
+    );
 
     (['hourly', 'daily', 'weekly'] as ScheduleFrequency[]).map(
       (frequency: ScheduleFrequency) => {
@@ -301,5 +331,18 @@ export class EventsAggregatorStack extends cdk.Stack {
     uns.certArn.grantRead(fn);
     uns.keyArn.grantRead(fn);
     uns.apiKeySecret.grantRead(fn);
+  }
+
+  private grantTableAccess(
+    fn: lambda.Function,
+    access: 'read' | 'write',
+  ): void {
+    if (access === 'write') this.eventStoreTable.table.grantWriteData(fn);
+    else this.eventStoreTable.table.grantReadData(fn);
+
+    this.lambdaFactory.addEnvironmentVariable(fn, {
+      name: 'TABLE_NAME',
+      value: this.eventStoreTable.table.tableName,
+    });
   }
 }
