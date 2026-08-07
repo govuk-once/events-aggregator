@@ -8,8 +8,7 @@ import {
 import { Logger } from '@aws-lambda-powertools/logger';
 
 const logger = new Logger();
-// 1. Initialize the SQS client (ensure your AWS credentials are configured in your environment)
-const sqs = new SQSClient({ region: 'eu-west-2' }); // Change to your AWS region (e.g., eu-west-2 for London)
+const sqs = new SQSClient({ region: 'eu-west-2' });
 
 export const travelEventToIncomingEvent = (
   history: ChangeHistory,
@@ -46,6 +45,6 @@ export const sendIncomingEventToQueue = async (
     return response;
   } catch (error) {
     logger.error('Error sending event to SQS:', { error });
-    throw Error('');
+    throw Error('Error sending event to SQS');
   }
 };
