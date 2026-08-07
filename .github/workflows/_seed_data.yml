@@ -1,0 +1,135 @@
+name: Seed Data
+
+on:
+  workflow_call:
+    inputs:
+      environment-name:
+        description: 'Exported as `Environment`. MUST match the value the CDK deploy used (dev, stag, prod, pr-123-dev).'
+        required: true
+        type: string
+      service-name:
+        description: 'Service segment of the table name.'
+        required: true
+        type: string
+      table-name:
+        required: false
+        type: string
+        default: 'sources'
+      script-path:
+        required: false
+        type: string
+        default: 'scripts/seed-countries.ts'
+      github-environment:
+        description: 'GitHub environment for protection rules. Empty to skip.'
+        required: false
+        type: string
+        default: ''
+      aws-region:
+        required: false
+        type: string
+        default: 'eu-west-2'
+      node-version:
+        required: false
+        type: string
+        default: '22'
+      dry-run:
+        required: false
+        type: boolean
+        default: false
+      check-orphans:
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      DEPLOYMENT_ROLE:
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  seed:
+    name: Seed ${{ inputs.environment-name }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.github-environment }}
+    concurrency:
+      # Two releases of the same environment queue rather than race. The writes
+      # are conditional so a race is safe, but serialising keeps the log honest.
+      group: seed-${{ inputs.environment-name }}
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #v5.0
+
+      - name: Get PNPM Version
+        id: pnpm-version
+        run: echo "pnpm_version=$(jq -r '.packageManager' package.json)" >> $GITHUB_OUTPUT
+
+      - name: Install pnpm
+        run: npm install -g ${{ steps.pnpm-version.outputs.pnpm_version }}
+
+      - name: setup node
+        uses: actions/setup-node@8f152de45cc393bb48ce5d89d36b731f54556e65 #v4.0
+        with:
+          node-version-file: .nvmrc
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@56d6a583f00f6bad6d19d91d53a7bc3b8143d0e9 # v5.1.1
+        with:
+          role-to-assume: ${{ secrets.DEPLOYMENT_ROLE }}
+          aws-region: ${{ inputs.aws-region }}
+
+      - name: Seed travel sources
+        id: seed
+        # An upstream (GOV.UK) outage must not fail an otherwise-good deploy.
+        # The next step turns a failure into a visible warning instead.
+        continue-on-error: true
+        shell: bash
+        env:
+          Environment: ${{ inputs.environment-name }}
+          SERVICE_NAME: ${{ inputs.service-name }}
+          SOURCE_TABLE_NAME: ${{ inputs.table-name }}
+          AWS_REGION: ${{ inputs.aws-region }}
+          SCRIPT_PATH: ${{ inputs.script-path }}
+          DRY_RUN: ${{ inputs.dry-run }}
+          CHECK_ORPHANS: ${{ inputs.check-orphans }}
+        run: |
+          set -euo pipefail
+          ARGS=()
+          if [ "${DRY_RUN}" = "true" ]; then ARGS+=(--dry-run); fi
+          if [ "${CHECK_ORPHANS}" = "true" ]; then ARGS+=(--check-orphans); fi
+          npx tsx scripts/seed-travel-events-source.ts "${ARGS[@]}" | tee "${RUNNER_TEMP}/seed.log"
+
+      - name: Report seed outcome
+        if: always()
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.seed.outcome }}
+          ENVIRONMENT: ${{ inputs.environment-name }}
+        run: |
+          {
+            echo "### Seed — ${ENVIRONMENT}"
+            echo ""
+            if [ "${OUTCOME}" = "success" ]; then
+              echo "Result: ✅ success"
+            else
+              echo "Result: ⚠️  ${OUTCOME} — the sources table may be incomplete."
+              echo ""
+              echo "The pipeline was not blocked. Re-run this job to finish seeding;"
+              echo "the seed is idempotent, so a re-run only writes what is missing."
+            fi
+            echo ""
+            echo '```'
+            tail -n 20 "${RUNNER_TEMP}/seed.log" 2>/dev/null || echo "(no output captured)"
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+          if [ "${OUTCOME}" != "success" ]; then
+            echo "::warning title=Seed incomplete::Seeding ${ENVIRONMENT} failed. The sources table may be missing entries — re-run the seed job."
+          fi

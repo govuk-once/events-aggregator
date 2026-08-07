@@ -54,7 +54,7 @@ export class EventsAggregatorStack extends cdk.Stack {
 
   private readonly dynamoFactory = new DynamoDbTableFactory(
     this,
-    'DyanamoTable',
+    'DynamoTable',
   );
 
   private readonly sqsFactory = new SqsQueueFactory(this, 'SqsEvents');
@@ -102,7 +102,17 @@ export class EventsAggregatorStack extends cdk.Stack {
       {
         name: constants.SOURCE_STORE_TABLE_NAME_VARIABLE,
         partitionKey: 'sourceID',
+        sortKey: 'compositeKey',
         pointInTimeRecovery: false,
+        globalSecondaryIndexes: [
+          {
+            indexName: 'composite-query',
+            partitionKeyName: 'compositeKey',
+            partitionKeyType: AttributeType.STRING,
+            sortKeyName: 'lastUpdated',
+            sortKeyType: AttributeType.STRING,
+          },
+        ],
         removalPolicy: isEphemeralEnvironment()
           ? cdk.RemovalPolicy.DESTROY
           : cdk.RemovalPolicy.RETAIN,
