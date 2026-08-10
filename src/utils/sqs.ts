@@ -47,6 +47,6 @@ export const sendIncomingEventToQueue = async (
     return response;
   } catch (error) {
     logger.error('Error sending event to SQS:', { error });
-    throw Error('Error sending event to SQS');
+    throw new Error('Error sending event to SQS');
   }
 };
