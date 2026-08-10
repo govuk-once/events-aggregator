@@ -236,7 +236,6 @@ describe('Travel Alerts Schedule', () => {
     contentScope.done();
   });
 
-
   it('should log the error if the search api throws an error', async () => {
     const scope = nock('https://www.gov.uk')
       .get('/api/search.json')
