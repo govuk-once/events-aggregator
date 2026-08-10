@@ -2,13 +2,11 @@
 // import { getParameter, SsmParameters } from '@/utils/ssm-client';
 // import { createUnsMtlsClientFromSecrets } from '@/utils/uns-client';
 import { MetricUnit } from '@aws-lambda-powertools/metrics';
-import type { Context, DynamoDBStreamEvent } from 'aws-lambda';
+import type { DynamoDBStreamEvent } from 'aws-lambda';
 
 import { logger, metrics } from '@/utils/observability';
 
-export const handler = async (event: DynamoDBStreamEvent, context: Context) => {
-  logger.addContext(context);
-
+export const handler = async (event: DynamoDBStreamEvent) => {
   try {
     const recordCount = event.Records.length;
 
