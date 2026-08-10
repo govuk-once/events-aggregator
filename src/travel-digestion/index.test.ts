@@ -236,6 +236,7 @@ describe('Travel Alerts Schedule', () => {
     contentScope.done();
   });
 
+
   it('should log the error if the search api throws an error', async () => {
     const scope = nock('https://www.gov.uk')
       .get('/api/search.json')
@@ -302,5 +303,42 @@ describe('Travel Alerts Schedule', () => {
 
     scope.done();
     contentScope.done();
+  });
+
+  it('should log if theres no content sources in the database', async () => {
+    const scope = nock('https://www.gov.uk')
+      .get('/api/search.json')
+      .query(true)
+      .reply(
+        200,
+        {
+          results: [
+            {
+              link: '/travel-advice/spain',
+            },
+          ],
+        },
+        { content_type: 'application/json' },
+      );
+
+    dynamoMock.on(BatchGetCommand).resolves({
+      Responses: {
+        tablename: [],
+      },
+    });
+
+    await handler({
+      triggeredAt: '2027-07-20',
+      schedule: 'daily',
+    });
+
+    expect(loggerInfoSpy).toHaveBeenCalledWith({
+      message: 'No sources detected',
+      schedule: 'daily',
+      startTime: '2027-07-19T00:00:00.000Z',
+      triggeredAt: '2027-07-20',
+    });
+
+    scope.done();
   });
 });
