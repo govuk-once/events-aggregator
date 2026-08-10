@@ -48,13 +48,6 @@ export const handler = async (event: DynamoDBStreamEvent, context: Context) => {
     //   throw new Error('UNS error');
     // }
 
-    // TODO: Once record processing is implemented, emit:
-    // metrics.addMetric(
-    //   'EventStoreRecordsProcessed',
-    //   MetricUnit.Count,
-    //   processedRecordCount,
-    // );
-
     return true;
   } catch (error: unknown) {
     const handledError =

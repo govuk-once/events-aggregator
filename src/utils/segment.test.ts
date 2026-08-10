@@ -59,14 +59,31 @@ describe('segment', () => {
     expect(tracer.setSegment).toHaveBeenLastCalledWith(parentSegment);
   });
 
-  it('throws when a subsegment cannot be created', async () => {
+  it('rethrows a non-Error throw without calling addError', async () => {
+    const parentSegment = {};
+    const nonError = { code: 'UNEXPECTED', detail: 'not an Error instance' };
+
+    const subsegment = {
+      parent: parentSegment,
+      addError: vi.fn(),
+      close: vi.fn(),
+    };
+
     const tracer = {
-      getSegment: vi.fn(() => undefined),
+      getSegment: vi.fn(() => ({
+        addNewSubsegment: vi.fn(() => subsegment),
+      })),
       setSegment: vi.fn(),
     } as unknown as Tracer;
 
     await expect(
-      segment(tracer, 'TestOperation', async () => 'success'),
-    ).rejects.toThrow('Failed to initialize segment: TestOperation');
+      segment(tracer, 'TestOperation', async () => {
+        throw nonError;
+      }),
+    ).rejects.toStrictEqual(nonError);
+
+    expect(subsegment.addError).not.toHaveBeenCalled();
+    expect(subsegment.close).toHaveBeenCalledTimes(1);
+    expect(tracer.setSegment).toHaveBeenLastCalledWith(parentSegment);
   });
 });

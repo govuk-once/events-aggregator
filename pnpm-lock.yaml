@@ -52,6 +52,9 @@ importers:
       aws-sigv4-fetch:
         specifier: ^4.4.1
         version: 4.4.1
+      aws-xray-sdk-core:
+        specifier: ^3.12.0
+        version: 3.12.0
       constructs:
         specifier: ^10.4.3
         version: 10.7.0
