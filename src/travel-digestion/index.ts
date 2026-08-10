@@ -7,6 +7,7 @@ import {
   getTravelChangesSince,
 } from '@/utils';
 import { logger, metrics, tracer } from '@/utils/observability';
+import { segment } from '@/utils/segment';
 import { getParameter, SsmParameters } from '@/utils/ssm-client';
 import { createUnsMtlsClientFromSecrets } from '@/utils/uns-client';
 import { MetricUnit } from '@aws-lambda-powertools/metrics';
@@ -18,24 +19,20 @@ export const handler = async (
 ) => {
   logger.addContext(context);
 
-  const parentSegment = tracer.getSegment();
-  const handlerSubsegment = parentSegment?.addNewSubsegment(
-    'ProcessTravelChanges',
-  );
-
-  if (handlerSubsegment) {
-    tracer.setSegment(handlerSubsegment);
-    tracer.annotateColdStart();
-    tracer.addServiceNameAnnotation();
-    handlerSubsegment.addAnnotation('Schedule', event.schedule);
-  }
-
   try {
     const startTime = getStartTime(event.triggeredAt, event.schedule);
-    const travelChanges = await getTravelChangesSince(startTime);
-    const resultCount = travelChanges.results.length;
 
-    handlerSubsegment?.addAnnotation('TravelAdviceResultCount', resultCount);
+    const travelChanges = await segment(
+      tracer,
+      'GetTravelChanges',
+      async (subsegment) => {
+        subsegment.addAnnotation('Schedule', event.schedule);
+
+        return getTravelChangesSince(startTime);
+      },
+    );
+
+    const resultCount = travelChanges.results.length;
 
     metrics.addMetric(
       'TravelAdviceResultsRetrieved',
@@ -43,16 +40,19 @@ export const handler = async (
       resultCount,
     );
 
-    if (travelChanges.results.length <= 0) {
+    if (resultCount === 0) {
       logger.info({
-        message: `No travel changes found`,
+        message: 'No travel changes found',
         triggeredAt: event.triggeredAt,
         schedule: event.schedule,
         startTime,
       });
+
       return false;
     }
+
     const unsPayload: NotificationPayload[] = [];
+
     for (const { link } of travelChanges.results) {
       const country = await getCountryChanges(link);
 
@@ -73,18 +73,14 @@ export const handler = async (
       unsPayload.length,
     );
 
-    handlerSubsegment?.addAnnotation(
-      'NotificationPayloadCount',
-      unsPayload.length,
-    );
-
-    if (unsPayload.length < 1) {
+    if (unsPayload.length === 0) {
       logger.info({
-        message: `No country changes detected in content API`,
+        message: 'No country changes detected in content API',
         triggeredAt: event.triggeredAt,
         schedule: event.schedule,
         startTime,
       });
+
       return false;
     }
 
@@ -104,16 +100,26 @@ export const handler = async (
       apiKey,
     });
 
-    const result = await uns.notification.sendToSubscribers(unsPayload);
+    const result = await segment(
+      tracer,
+      'SubmitNotifications',
+      async (subsegment) => {
+        subsegment.addAnnotation('NotificationCount', unsPayload.length);
+
+        return uns.notification.sendToSubscribers(unsPayload);
+      },
+    );
+
     if (!result.ok) {
       metrics.addMetric('NotificationSubmissionFailures', MetricUnit.Count, 1);
 
       logger.error({
-        message: `Error from uns api`,
-        result: result,
+        message: 'Error from uns api',
+        result,
         triggeredAt: event.triggeredAt,
         schedule: event.schedule,
       });
+
       throw new Error('UNS error');
     }
 
@@ -132,7 +138,6 @@ export const handler = async (
             cause: error,
           });
 
-    handlerSubsegment?.addError(handledError);
     tracer.addErrorAsMetadata(handledError);
 
     logger.error({
@@ -143,12 +148,6 @@ export const handler = async (
 
     throw error;
   } finally {
-    handlerSubsegment?.close();
-
-    if (parentSegment) {
-      tracer.setSegment(parentSegment);
-    }
-
     metrics.publishStoredMetrics();
   }
 };

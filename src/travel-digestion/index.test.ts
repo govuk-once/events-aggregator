@@ -1,12 +1,12 @@
-import { describe, it, vi, afterAll, expect, afterEach } from 'vitest';
-import { handler } from '.';
-import { getSecret } from '@aws-lambda-powertools/parameters/secrets';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { MetricUnit } from '@aws-lambda-powertools/metrics';
+import { getSecret } from '@aws-lambda-powertools/parameters/secrets';
 import type { Context } from 'aws-lambda';
-import { metrics } from '../utils/observability';
-
 import nock from 'nock';
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
+
+import { handler } from '.';
+import { metrics } from '../utils/observability';
 
 vi.stubEnv('UNS_API_URL', 'http://uns.api');
 vi.stubEnv('UNS_CERT_ARN', 'arn::cert');
@@ -46,6 +46,32 @@ vi.mock('@aws-sdk/credential-providers', () => ({
 
 vi.mock('@aws-lambda-powertools/parameters/secrets', () => ({
   getSecret: vi.fn(),
+}));
+
+const { segmentMock, subsegmentMock } = vi.hoisted(() => {
+  const subsegmentMock = {
+    addAnnotation: vi.fn(),
+    addMetadata: vi.fn(),
+  };
+
+  const segmentMock = vi.fn(
+    async <T>(
+      _tracer: unknown,
+      _name: string,
+      fn: (segment: typeof subsegmentMock) => Promise<T> | T,
+    ): Promise<T> => {
+      return fn(subsegmentMock);
+    },
+  );
+
+  return {
+    segmentMock,
+    subsegmentMock,
+  };
+});
+
+vi.mock('../utils/segment', () => ({
+  segment: segmentMock,
 }));
 
 const loggerInfoSpy = vi
@@ -90,6 +116,9 @@ describe('Travel Alerts Schedule', () => {
     metricsPublishSpy.mockClear();
     sendMock.mockClear();
     mockGetSecret.mockClear();
+    segmentMock.mockClear();
+    subsegmentMock.addAnnotation.mockClear();
+    subsegmentMock.addMetadata.mockClear();
   });
 
   afterAll(() => {
@@ -209,6 +238,13 @@ describe('Travel Alerts Schedule', () => {
 
     expect(metricsPublishSpy).toHaveBeenCalledTimes(1);
 
+    expect(segmentMock).toHaveBeenCalledTimes(2);
+
+    expect(segmentMock.mock.calls.map(([, name]) => name)).toEqual([
+      'GetTravelChanges',
+      'SubmitNotifications',
+    ]);
+
     scope.done();
     contentScope.done();
     unsScope.done();
@@ -260,6 +296,9 @@ describe('Travel Alerts Schedule', () => {
     );
 
     expect(metricsPublishSpy).toHaveBeenCalledTimes(1);
+
+    expect(segmentMock).toHaveBeenCalledTimes(1);
+    expect(segmentMock.mock.calls[0]?.[1]).toBe('GetTravelChanges');
 
     scope.done();
   });
@@ -332,6 +371,9 @@ describe('Travel Alerts Schedule', () => {
 
     expect(metricsPublishSpy).toHaveBeenCalledTimes(1);
 
+    expect(segmentMock).toHaveBeenCalledTimes(1);
+    expect(segmentMock.mock.calls[0]?.[1]).toBe('GetTravelChanges');
+
     scope.done();
     contentScope.done();
   });
@@ -342,7 +384,7 @@ describe('Travel Alerts Schedule', () => {
       .query(true)
       .reply(
         500,
-        { messge: 'unknown error' },
+        { message: 'unknown error' },
         { content_type: 'application/json' },
       );
 
@@ -369,6 +411,9 @@ describe('Travel Alerts Schedule', () => {
     );
 
     expect(metricsPublishSpy).toHaveBeenCalledTimes(1);
+
+    expect(segmentMock).toHaveBeenCalledTimes(1);
+    expect(segmentMock.mock.calls[0]?.[1]).toBe('GetTravelChanges');
 
     scope.done();
   });
@@ -427,6 +472,9 @@ describe('Travel Alerts Schedule', () => {
     );
 
     expect(metricsPublishSpy).toHaveBeenCalledTimes(1);
+
+    expect(segmentMock).toHaveBeenCalledTimes(1);
+    expect(segmentMock.mock.calls[0]?.[1]).toBe('GetTravelChanges');
 
     scope.done();
     contentScope.done();
@@ -514,6 +562,13 @@ describe('Travel Alerts Schedule', () => {
     );
 
     expect(metricsPublishSpy).toHaveBeenCalledTimes(1);
+
+    expect(segmentMock).toHaveBeenCalledTimes(2);
+
+    expect(segmentMock.mock.calls.map(([, name]) => name)).toEqual([
+      'GetTravelChanges',
+      'SubmitNotifications',
+    ]);
 
     searchScope.done();
     contentScope.done();

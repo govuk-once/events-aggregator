@@ -4,25 +4,13 @@
 import { MetricUnit } from '@aws-lambda-powertools/metrics';
 import type { Context, DynamoDBStreamEvent } from 'aws-lambda';
 
-import { logger, metrics, tracer } from '@/utils/observability';
+import { logger, metrics } from '@/utils/observability';
 
 export const handler = async (event: DynamoDBStreamEvent, context: Context) => {
   logger.addContext(context);
 
-  const parentSegment = tracer.getSegment();
-  const handlerSubsegment =
-    parentSegment?.addNewSubsegment('ProcessEventStore');
-
-  if (handlerSubsegment) {
-    tracer.setSegment(handlerSubsegment);
-    tracer.annotateColdStart();
-    tracer.addServiceNameAnnotation();
-  }
-
   try {
     const recordCount = event.Records.length;
-
-    tracer.putAnnotation('RecordCount', recordCount);
 
     logger.info('single-event', { event });
 
@@ -76,21 +64,12 @@ export const handler = async (event: DynamoDBStreamEvent, context: Context) => {
             cause: error,
           });
 
-    handlerSubsegment?.addError(handledError);
-    tracer.addErrorAsMetadata(handledError);
-
     logger.error('Failed to process EventStore stream records', {
       error: handledError,
     });
 
     throw error;
   } finally {
-    handlerSubsegment?.close();
-
-    if (parentSegment) {
-      tracer.setSegment(parentSegment);
-    }
-
     metrics.publishStoredMetrics();
   }
 };
