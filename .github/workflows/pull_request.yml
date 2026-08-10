@@ -24,3 +24,14 @@ jobs:
     uses: ./.github/workflows/_build_deploy.yml
     with:
       environment: development
+
+  SeedDev:
+    name: Seed dev data
+    needs: DeployToDev
+    uses: ./.github/workflows/_seed_data.yml
+    with:
+      environment-name: development
+      service-name: dynamotable
+      table-name: runner-dynamotable-sourceStore
+    secrets:
+      DEPLOYMENT_ROLE: ${{ secrets.DEV_DEPLOYMENT_ROLE }}
