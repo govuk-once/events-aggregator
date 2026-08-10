@@ -22,7 +22,7 @@ const logger = new Logger({
 const getTableName = (): string => {
   const tableName = process.env.TABLE_NAME;
   if (!tableName) {
-    throw Error('Table Name not set');
+    throw new Error('Table Name not set');
   }
   return tableName;
 };
