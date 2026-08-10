@@ -1,15 +1,23 @@
-import { Logger } from '@aws-lambda-powertools/logger';
-import { MetricUnit } from '@aws-lambda-powertools/metrics';
-import { getSecret } from '@aws-lambda-powertools/parameters/secrets';
-import type { Context } from 'aws-lambda';
-import nock from 'nock';
-import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
-
+import {
+  describe,
+  it,
+  vi,
+  afterAll,
+  expect,
+  afterEach,
+  beforeEach,
+} from 'vitest';
 import { handler } from '.';
-import { metrics } from '../utils/observability';
+import { getSecret } from '@aws-lambda-powertools/parameters/secrets';
+import { Logger } from '@aws-lambda-powertools/logger';
+
+import nock from 'nock';
 import { mockClient } from 'aws-sdk-client-mock';
 import { BatchGetCommand, DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
+
+import { MetricUnit } from '@aws-lambda-powertools/metrics';
+import { metrics } from '../utils/observability';
 
 vi.stubEnv('UNS_API_URL', 'http://uns.api');
 vi.stubEnv('UNS_CERT_ARN', 'arn::cert');
@@ -66,20 +74,13 @@ const { segmentMock, subsegmentMock } = vi.hoisted(() => {
       _tracer: unknown,
       _name: string,
       fn: (segment: typeof subsegmentMock) => Promise<T> | T,
-    ): Promise<T> => {
-      return fn(subsegmentMock);
-    },
+    ): Promise<T> => fn(subsegmentMock),
   );
 
-  return {
-    segmentMock,
-    subsegmentMock,
-  };
+  return { segmentMock, subsegmentMock };
 });
 
-vi.mock('../utils/segment', () => ({
-  segment: segmentMock,
-}));
+vi.mock('../utils/segment', () => ({ segment: segmentMock }));
 
 const loggerInfoSpy = vi
   .spyOn(Logger.prototype, 'info')
@@ -93,29 +94,24 @@ const mockGetSecret = vi.mocked(getSecret) as unknown as ReturnType<
   typeof vi.fn
 >;
 
-const mockContext: Context = {
-  callbackWaitsForEmptyEventLoop: false,
-  functionName: 'events-aggregator-travel-digestion',
-  functionVersion: '$LATEST',
-  invokedFunctionArn:
-    'arn:aws:lambda:eu-west-2:123456789012:function:travel-digestion',
-  memoryLimitInMB: '128',
-  awsRequestId: 'test-request-id',
-  logGroupName: '/aws/lambda/travel-digestion',
-  logStreamName: 'test-log-stream',
-  getRemainingTimeInMillis: vi.fn().mockReturnValue(30_000),
-  done: vi.fn(),
-  fail: vi.fn(),
-  succeed: vi.fn(),
-};
-
 const metricsAddSpy = vi.spyOn(metrics, 'addMetric');
 
 const metricsPublishSpy = vi
   .spyOn(metrics, 'publishStoredMetrics')
   .mockImplementation(() => metrics);
 
+const spainSource = {
+  compositeKey: 'travel/spain',
+  URL: '/travel-advice/spain',
+  sourceEnabled: true,
+};
+
 describe('Travel Alerts Schedule', () => {
+  beforeEach(() => {
+    dynamoMock.reset();
+    sqsMock.reset();
+  });
+
   afterEach(() => {
     loggerInfoSpy.mockClear();
     loggerErrorSpy.mockClear();
@@ -194,26 +190,15 @@ describe('Travel Alerts Schedule', () => {
       );
 
     dynamoMock.on(BatchGetCommand).resolves({
-      Responses: {
-        tablename: [
-          {
-            compositeKey: 'travel/spain',
-            URL: '/travel-advice/spain',
-            sourceEnabled: true,
-          },
-        ],
-      },
+      Responses: { tablename: [spainSource] },
     });
 
     sqsMock.on(SendMessageCommand).resolves({});
 
-    const response = await handler(
-      {
-        triggeredAt: '2026-07-20',
-        schedule: 'daily',
-      },
-      mockContext,
-    );
+    const response = await handler({
+      triggeredAt: '2026-07-20',
+      schedule: 'daily',
+    });
 
     expect(response).toBe(true);
 
@@ -224,37 +209,37 @@ describe('Travel Alerts Schedule', () => {
     );
 
     expect(metricsAddSpy).toHaveBeenCalledWith(
-      'NotificationPayloadsCreated',
+      'EventSourcesRetrieved',
       MetricUnit.Count,
       1,
     );
 
     expect(metricsAddSpy).toHaveBeenCalledWith(
-      'NotificationsSubmitted',
+      'TravelEventsQueued',
       MetricUnit.Count,
       1,
     );
-
-    expect(metricsAddSpy).not.toHaveBeenCalledWith(
-      'NotificationSubmissionFailures',
-      MetricUnit.Count,
-      expect.any(Number),
-    );
-
     expect(metricsPublishSpy).toHaveBeenCalledTimes(1);
 
-    expect(segmentMock).toHaveBeenCalledTimes(2);
-
+    expect(segmentMock).toHaveBeenCalledTimes(4);
     expect(segmentMock.mock.calls.map(([, name]) => name)).toEqual([
       'GetTravelChanges',
-      'SubmitNotifications',
+      'GetEventSources',
+      'GetCountryChanges',
+      'PublishCountryChanges',
     ]);
+
+    expect(subsegmentMock.addAnnotation).toHaveBeenCalledWith(
+      'Schedule',
+      'daily',
+    );
+    expect(subsegmentMock.addAnnotation).toHaveBeenCalledWith('EventCount', 1);
 
     scope.done();
     contentScope.done();
   });
 
-  it('should log info if the search api returns no results', async () => {
+  it('should return false and log when the search API returns no results', async () => {
     const scope = nock('https://www.gov.uk')
       .get('/api/search.json')
       .query(true)
@@ -266,13 +251,12 @@ describe('Travel Alerts Schedule', () => {
         { content_type: 'application/json' },
       );
 
-    await handler(
-      {
-        triggeredAt: '2027-07-20',
-        schedule: 'daily',
-      },
-      mockContext,
-    );
+    const result = await handler({
+      triggeredAt: '2027-07-20',
+      schedule: 'daily',
+    });
+
+    expect(result).toBe(false);
 
     expect(loggerInfoSpy).toHaveBeenCalledWith({
       message: 'No travel changes found',
@@ -288,17 +272,10 @@ describe('Travel Alerts Schedule', () => {
     );
 
     expect(metricsAddSpy).not.toHaveBeenCalledWith(
-      'NotificationPayloadsCreated',
+      'EventSourcesRetrieved',
       MetricUnit.Count,
       expect.any(Number),
     );
-
-    expect(metricsAddSpy).not.toHaveBeenCalledWith(
-      'NotificationsSubmitted',
-      MetricUnit.Count,
-      expect.any(Number),
-    );
-
     expect(metricsPublishSpy).toHaveBeenCalledTimes(1);
 
     expect(segmentMock).toHaveBeenCalledTimes(1);
@@ -307,7 +284,9 @@ describe('Travel Alerts Schedule', () => {
     scope.done();
   });
 
-  it('should log if theres an error from the content api', async () => {
+  it('should return false and log when no sources are found in the database', async () => {
+    dynamoMock.on(BatchGetCommand).resolves({ Responses: { tablename: [] } });
+
     const scope = nock('https://www.gov.uk')
       .get('/api/search.json')
       .query(true)
@@ -322,6 +301,57 @@ describe('Travel Alerts Schedule', () => {
         },
         { content_type: 'application/json' },
       );
+
+    const result = await handler({
+      triggeredAt: '2027-07-20',
+      schedule: 'daily',
+    });
+
+    expect(result).toBe(false);
+
+    expect(loggerInfoSpy).toHaveBeenCalledWith({
+      message: 'No sources detected',
+      schedule: 'daily',
+      startTime: '2027-07-19T00:00:00.000Z',
+      triggeredAt: '2027-07-20',
+    });
+
+    expect(metricsAddSpy).toHaveBeenCalledWith(
+      'TravelAdviceResultsRetrieved',
+      MetricUnit.Count,
+      1,
+    );
+    expect(metricsAddSpy).toHaveBeenCalledWith(
+      'EventSourcesRetrieved',
+      MetricUnit.Count,
+      0,
+    );
+    expect(metricsAddSpy).not.toHaveBeenCalledWith(
+      'TravelEventsQueued',
+      MetricUnit.Count,
+      expect.any(Number),
+    );
+    expect(metricsPublishSpy).toHaveBeenCalledTimes(1);
+
+    expect(segmentMock).toHaveBeenCalledTimes(2);
+    expect(segmentMock.mock.calls.map(([, name]) => name)).toEqual([
+      'GetTravelChanges',
+      'GetEventSources',
+    ]);
+
+    scope.done();
+  });
+
+  it('should log and skip a country when the content API returns no changes', async () => {
+    dynamoMock
+      .on(BatchGetCommand)
+      .resolves({ Responses: { tablename: [spainSource] } });
+    sqsMock.on(SendMessageCommand).resolves({ MessageId: 'msg-1' });
+
+    const scope = nock('https://www.gov.uk')
+      .get('/api/search.json')
+      .query(true)
+      .reply(200, { results: [{ link: '/travel-advice/spain' }] });
 
     const contentScope = nock('https://www.gov.uk')
       .get('/api/content/travel-advice/spain')
@@ -340,13 +370,7 @@ describe('Travel Alerts Schedule', () => {
         { content_type: 'application/json' },
       );
 
-    await handler(
-      {
-        triggeredAt: '2027-07-20',
-        schedule: 'daily',
-      },
-      mockContext,
-    );
+    await handler({ triggeredAt: '2027-07-20', schedule: 'daily' });
 
     expect(loggerInfoSpy).toHaveBeenCalledWith({
       message: 'No country changes detected in content API',
@@ -360,29 +384,31 @@ describe('Travel Alerts Schedule', () => {
       MetricUnit.Count,
       1,
     );
-
     expect(metricsAddSpy).toHaveBeenCalledWith(
-      'NotificationPayloadsCreated',
+      'EventSourcesRetrieved',
       MetricUnit.Count,
-      0,
+      1,
     );
-
     expect(metricsAddSpy).not.toHaveBeenCalledWith(
-      'NotificationsSubmitted',
+      'TravelEventsQueued',
       MetricUnit.Count,
       expect.any(Number),
     );
 
     expect(metricsPublishSpy).toHaveBeenCalledTimes(1);
 
-    expect(segmentMock).toHaveBeenCalledTimes(1);
-    expect(segmentMock.mock.calls[0]?.[1]).toBe('GetTravelChanges');
+    expect(segmentMock).toHaveBeenCalledTimes(3);
+    expect(segmentMock.mock.calls.map(([, name]) => name)).toEqual([
+      'GetTravelChanges',
+      'GetEventSources',
+      'GetCountryChanges',
+    ]);
 
     scope.done();
     contentScope.done();
   });
 
-  it('should log the error if the search api throws an error', async () => {
+  it('should throw and log when the search API returns an error', async () => {
     const scope = nock('https://www.gov.uk')
       .get('/api/search.json')
       .query(true)
@@ -393,14 +419,8 @@ describe('Travel Alerts Schedule', () => {
       );
 
     await expect(
-      handler(
-        {
-          triggeredAt: '2027-07-20',
-          schedule: 'daily',
-        },
-        mockContext,
-      ),
-    ).rejects.toThrow();
+      handler({ triggeredAt: '2027-07-20', schedule: 'daily' }),
+    ).rejects.toThrow('Search api returned a 500');
 
     expect(loggerErrorSpy).toHaveBeenCalledWith({
       message: 'Search api returned a 500',
@@ -422,7 +442,11 @@ describe('Travel Alerts Schedule', () => {
     scope.done();
   });
 
-  it('should log the error if the content api throws an error', async () => {
+  it('should throw and log when the content API returns an error', async () => {
+    dynamoMock
+      .on(BatchGetCommand)
+      .resolves({ Responses: { tablename: [spainSource] } });
+
     const scope = nock('https://www.gov.uk')
       .get('/api/search.json')
       .query(true)
@@ -448,14 +472,8 @@ describe('Travel Alerts Schedule', () => {
       );
 
     await expect(
-      handler(
-        {
-          triggeredAt: '2027-07-20',
-          schedule: 'daily',
-        },
-        mockContext,
-      ),
-    ).rejects.toThrow();
+      handler({ triggeredAt: '2027-07-20', schedule: 'daily' }),
+    ).rejects.toThrow('Content api returned a 500');
 
     expect(loggerErrorSpy).toHaveBeenCalledWith({
       message: 'Content api returned a 500',
@@ -468,148 +486,60 @@ describe('Travel Alerts Schedule', () => {
       MetricUnit.Count,
       1,
     );
-
-    expect(metricsAddSpy).not.toHaveBeenCalledWith(
-      'NotificationPayloadsCreated',
+    expect(metricsAddSpy).toHaveBeenCalledWith(
+      'EventSourcesRetrieved',
       MetricUnit.Count,
-      expect.any(Number),
+      1,
     );
-
     expect(metricsPublishSpy).toHaveBeenCalledTimes(1);
 
-    expect(segmentMock).toHaveBeenCalledTimes(1);
-    expect(segmentMock.mock.calls[0]?.[1]).toBe('GetTravelChanges');
+    expect(segmentMock).toHaveBeenCalledTimes(3);
+    expect(segmentMock.mock.calls.map(([, name]) => name)).toEqual([
+      'GetTravelChanges',
+      'GetEventSources',
+      'GetCountryChanges',
+    ]);
 
     scope.done();
     contentScope.done();
   });
 
-  it('should record a metric when UNS returns an unsuccessful response', async () => {
-    sendMock.mockResolvedValueOnce({
-      Parameters: [
-        {
-          Name: '/prefix/uns-api-url',
-          Value: 'http://uns.api',
-        },
-        {
-          Name: '/prefix/uns-api-key',
-          Value: 'api_key',
-        },
-        {
-          Name: '/prefix/uns-mtls-cert-arn',
-          Value: 'arn::cert',
-        },
-        {
-          Name: '/prefix/uns-mtls-key-arn',
-          Value: 'arn:key',
-        },
-      ],
+  it('should skip a disabled source without queuing events', async () => {
+    dynamoMock.on(BatchGetCommand).resolves({
+      Responses: { tablename: [{ ...spainSource, sourceEnabled: false }] },
     });
 
-    mockGetSecret.mockResolvedValue('-----BEGIN');
-
-    const searchScope = nock('https://www.gov.uk')
-      .get('/api/search.json')
-      .query(true)
-      .reply(200, {
-        results: [
-          {
-            link: '/travel-advice/spain',
-          },
-        ],
-      });
-
-    const contentScope = nock('https://www.gov.uk')
-      .get('/api/content/travel-advice/spain')
-      .query(true)
-      .reply(200, {
-        details: {
-          change_history: [
-            {
-              note: 'A change has happened',
-              public_timestamp: '2026-07-21T10:10:00Z',
-            },
-          ],
-          country: {
-            name: 'Spain',
-            slug: 'spain',
-          },
-        },
-      });
-
-    const unsScope = nock('http://uns.api')
-      .post('/v1/send-to-group')
-      .reply(500, {
-        message: 'UNS unavailable',
-      });
-
-    await expect(
-      handler(
-        {
-          triggeredAt: '2026-07-20',
-          schedule: 'daily',
-        },
-        mockContext,
-      ),
-    ).rejects.toThrow('UNS error');
-
-    expect(metricsAddSpy).toHaveBeenCalledWith(
-      'NotificationSubmissionFailures',
-      MetricUnit.Count,
-      1,
-    );
-
-    expect(metricsAddSpy).not.toHaveBeenCalledWith(
-      'NotificationsSubmitted',
-      MetricUnit.Count,
-      expect.any(Number),
-    );
-
-    expect(metricsPublishSpy).toHaveBeenCalledTimes(1);
-
-    expect(segmentMock).toHaveBeenCalledTimes(2);
-
-    expect(segmentMock.mock.calls.map(([, name]) => name)).toEqual([
-      'GetTravelChanges',
-      'SubmitNotifications',
-    ]);
-
-    searchScope.done();
-    contentScope.done();
-    unsScope.done();
-  it('should log if theres no content sources in the database', async () => {
     const scope = nock('https://www.gov.uk')
       .get('/api/search.json')
       .query(true)
-      .reply(
-        200,
-        {
-          results: [
-            {
-              link: '/travel-advice/spain',
-            },
-          ],
-        },
-        { content_type: 'application/json' },
-      );
+      .reply(200, { results: [{ link: '/travel-advice/spain' }] });
 
-    dynamoMock.on(BatchGetCommand).resolves({
-      Responses: {
-        tablename: [],
-      },
-    });
-
-    await handler({
-      triggeredAt: '2027-07-20',
+    const result = await handler({
+      triggeredAt: '2026-07-20',
       schedule: 'daily',
     });
 
-    expect(loggerInfoSpy).toHaveBeenCalledWith({
-      message: 'No sources detected',
-      schedule: 'daily',
-      startTime: '2027-07-19T00:00:00.000Z',
-      triggeredAt: '2027-07-20',
-    });
+    expect(result).toBe(true);
+
+    expect(metricsAddSpy).toHaveBeenCalledWith(
+      'EventSourcesRetrieved',
+      MetricUnit.Count,
+      1,
+    );
+    expect(metricsAddSpy).not.toHaveBeenCalledWith(
+      'TravelEventsQueued',
+      MetricUnit.Count,
+      expect.any(Number),
+    );
+    expect(metricsPublishSpy).toHaveBeenCalledTimes(1);
+
+    expect(segmentMock).toHaveBeenCalledTimes(2);
+    expect(segmentMock.mock.calls.map(([, name]) => name)).toEqual([
+      'GetTravelChanges',
+      'GetEventSources',
+    ]);
+
+    expect(sqsMock.calls()).toHaveLength(0);
 
     scope.done();
   });
