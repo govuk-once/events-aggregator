@@ -4,12 +4,19 @@ import { getSecret } from '@aws-lambda-powertools/parameters/secrets';
 import { Logger } from '@aws-lambda-powertools/logger';
 
 import nock from 'nock';
+import { mockClient } from 'aws-sdk-client-mock';
+import { BatchGetCommand, DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
 
 vi.stubEnv('UNS_API_URL', 'http://uns.api');
 vi.stubEnv('UNS_CERT_ARN', 'arn::cert');
 vi.stubEnv('UNS_KEY_ARN', 'arn:key');
 vi.stubEnv('UNS_API_KEY_ARN', 'api_key');
 vi.stubEnv('SSM_PREFIX', 'prefix');
+vi.stubEnv('SOURCE_TABLE_NAME', 'tablename');
+
+const dynamoMock = mockClient(DynamoDBDocumentClient);
+const sqsMock = mockClient(SQSClient);
 
 const { sendMock } = vi.hoisted(() => ({
   sendMock: vi.fn(),
@@ -128,21 +135,19 @@ describe('Travel Alerts Schedule', () => {
         { content_type: 'application/json' },
       );
 
-    const unsScope = nock('http://uns.api')
-      .post('/v1/send-to-group', [
-        {
-          Namespace: 'travel',
-          Group: 'spain',
-          Subgroup: 'instant',
-          NotificationTitle: 'Travel Advice - Spain',
-          NotificationBody:
-            "There's been a change in country you are interested in",
-          MessageTitle: 'Spain Travel Advice',
-          MessageBody:
-            'Changes made :\n\nA change has happened\n\n \n \n \n\nTime updated :\n2026-07-21T10:10:00Z\n\n\n',
-        },
-      ])
-      .reply(200, {}, { content_type: 'application/json' });
+    dynamoMock.on(BatchGetCommand).resolves({
+      Responses: {
+        tablename: [
+          {
+            compositeKey: 'travel/spain',
+            URL: '/travel-advice/spain',
+            sourceEnabled: true,
+          },
+        ],
+      },
+    });
+
+    sqsMock.on(SendMessageCommand).resolves({});
 
     const response = await handler({
       triggeredAt: '2026-07-20',
@@ -153,7 +158,6 @@ describe('Travel Alerts Schedule', () => {
 
     scope.done();
     contentScope.done();
-    unsScope.done();
   });
 
   it('should log info if the search api returns not results', async () => {
@@ -298,5 +302,42 @@ describe('Travel Alerts Schedule', () => {
 
     scope.done();
     contentScope.done();
+  });
+
+  it('should log if theres no content sources in the database', async () => {
+    const scope = nock('https://www.gov.uk')
+      .get('/api/search.json')
+      .query(true)
+      .reply(
+        200,
+        {
+          results: [
+            {
+              link: '/travel-advice/spain',
+            },
+          ],
+        },
+        { content_type: 'application/json' },
+      );
+
+    dynamoMock.on(BatchGetCommand).resolves({
+      Responses: {
+        tablename: [],
+      },
+    });
+
+    await handler({
+      triggeredAt: '2027-07-20',
+      schedule: 'daily',
+    });
+
+    expect(loggerInfoSpy).toHaveBeenCalledWith({
+      message: 'No sources detected',
+      schedule: 'daily',
+      startTime: '2027-07-19T00:00:00.000Z',
+      triggeredAt: '2027-07-20',
+    });
+
+    scope.done();
   });
 });

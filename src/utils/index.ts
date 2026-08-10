@@ -1,4 +1,5 @@
 import type {
+  ChangeHistory,
   CountryResponse,
   NotificationPayload,
   ScheduleFrequency,
@@ -116,4 +117,15 @@ export const getSmmSecret = async (secretArn: string): Promise<string> => {
   }
 
   return value;
+};
+
+export const getEventsFromCountry = (
+  country: CountryResponse,
+  timestamp: string,
+): ChangeHistory[] | null => {
+  const countryChanges = country.details.change_history.filter(
+    ({ public_timestamp }) => public_timestamp >= timestamp,
+  );
+
+  return countryChanges;
 };

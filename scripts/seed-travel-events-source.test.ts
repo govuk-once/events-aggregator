@@ -1,7 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-
-import { vi, expect, describe, beforeEach, afterEach, it } from 'vitest';
-
+import { vi, beforeEach, afterEach, describe, it } from 'vitest';
 import { mockClient } from 'aws-sdk-client-mock';
 import { DescribeTableCommand, DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
@@ -60,6 +58,16 @@ const existingRow = (slug: string, extra: Record<string, unknown> = {}) => {
     ...extra,
   };
 };
+
+/** The key shape the script sends: partition key plus the composite sort key. */
+const keyFor = (slug: string) => {
+  const source = buildSource(slug, 'ignored');
+  return { sourceID: source.sourceID, compositeKey: source.compositeKey };
+};
+
+/** Recover the slug from a `travel/<slug>` sort key. */
+const slugOfKey = (key: { compositeKey: string }): string =>
+  key.compositeKey.split('/')[1];
 
 /**
  * Drive a promise that parks on `sleep`. Only `setTimeout` is faked so
@@ -141,6 +149,7 @@ describe('seed-countries', () => {
         sourceID: 'f94d09a5-6da5-5d27-b829-56215f36dce3',
         sourceNamespace: 'travel',
         sourceGroup: 'myanmar',
+        compositeKey: 'travel/myanmar',
         accessMethod: 'api',
         URL: 'https://www.gov.uk/api/content/foreign-travel-advice/myanmar',
         sourceEnabled: true,
@@ -158,7 +167,6 @@ describe('seed-countries', () => {
     it('derives the CDK name from Environment and service', () => {
       process.env.Environment = 'stag';
       process.env.USER = 'stag';
-
       expect(resolveTableName({ service: 'udp', tableName: 'sources' })).toBe(
         'stag-udp-sources',
       );
@@ -166,7 +174,7 @@ describe('seed-countries', () => {
 
     it('refuses to guess when Environment is unset', () => {
       delete process.env.Environment;
-      delete process.env.User;
+      delete process.env.USER;
 
       expect(() =>
         resolveTableName({ service: 'udp', tableName: 'sources' }),
@@ -351,7 +359,7 @@ describe('seed-countries', () => {
       dynamoMock.on(BatchGetCommand).callsFake((input) => ({
         Responses: {
           [TABLE]: input.RequestItems[TABLE].Keys.map(
-            (key: { sourceGroup: string }) => existingRow(key.sourceGroup),
+            (key: { compositeKey: string }) => existingRow(slugOfKey(key)),
           ),
         },
       }));
@@ -379,6 +387,17 @@ describe('seed-countries', () => {
       ).toBe(true);
     });
 
+    it('keys the state check on sourceID and the composite sort key', async () => {
+      stubFetch(makeChildren(150));
+      dynamoMock.on(BatchGetCommand).resolves({});
+
+      await runMain();
+
+      const keys = getCommandCall(BatchGetCommand, 1).RequestItems[TABLE].Keys;
+      expect(Object.keys(keys[0])).toEqual(['sourceID', 'compositeKey']);
+      expect(keys).toContainEqual(keyFor('country-0'));
+    });
+
     it('re-issues unprocessed keys and merges the results', async () => {
       stubFetch(makeChildren(150));
       const firstFifty = Array.from({ length: 50 }, (_, i) =>
@@ -391,7 +410,7 @@ describe('seed-countries', () => {
           UnprocessedKeys: {
             [TABLE]: {
               Keys: Array.from({ length: 50 }, (_, i) =>
-                existingRow(`country-${i + 50}`),
+                keyFor(`country-${i + 50}`),
               ),
             },
           },
@@ -411,11 +430,9 @@ describe('seed-countries', () => {
       dynamoMock.on(BatchGetCommand).callsFake((input) => ({
         Responses: {
           [TABLE]: input.RequestItems[TABLE].Keys.filter(
-            (key: { sourceGroup: string }) =>
-              !['country-0', 'country-1', 'country-2'].includes(
-                key.sourceGroup,
-              ),
-          ).map((key: { sourceGroup: string }) => existingRow(key.sourceGroup)),
+            (key: { compositeKey: string }) =>
+              !['country-0', 'country-1', 'country-2'].includes(slugOfKey(key)),
+          ).map((key: { compositeKey: string }) => existingRow(slugOfKey(key))),
         },
       }));
 
@@ -433,6 +450,10 @@ describe('seed-countries', () => {
           .map((put: any) => put.args[0].input.Item.sourceGroup)
           .sort((a: string, b: string) => a.localeCompare(b)),
       ).toEqual(['country-0', 'country-1', 'country-2']);
+
+      // The written item carries the composite sort key, not just the slug.
+      const firstItem = getCommandCall(PutCommand, 1).Item;
+      expect(firstItem.compositeKey).toBe(`travel/${firstItem.sourceGroup}`);
     });
 
     it('treats a lost race as skipped rather than a failure', async () => {
@@ -452,9 +473,9 @@ describe('seed-countries', () => {
       dynamoMock.on(BatchGetCommand).callsFake((input) => ({
         Responses: {
           [TABLE]: input.RequestItems[TABLE].Keys.map(
-            (key: { sourceGroup: string }) =>
-              existingRow(key.sourceGroup, {
-                sourceEnabled: key.sourceGroup === 'country-7' ? false : true,
+            (key: { compositeKey: string }) =>
+              existingRow(slugOfKey(key), {
+                sourceEnabled: slugOfKey(key) === 'country-7' ? false : true,
                 keyARN: 'arn:aws:kms:eu-west-2:111122223333:key/abc',
               }),
           ),
