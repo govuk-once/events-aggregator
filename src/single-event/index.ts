@@ -1,66 +1,62 @@
-// import { getSmmSecret } from '@/utils';
-// import { getParameter, SsmParameters } from '@/utils/ssm-client';
-// import { createUnsMtlsClientFromSecrets } from '@/utils/uns-client';
-import { MetricUnit } from '@aws-lambda-powertools/metrics';
-import type { DynamoDBStreamEvent } from 'aws-lambda';
+import { Logger } from '@aws-lambda-powertools/logger';
+import { DynamoDBRecord, DynamoDBStreamHandler } from 'aws-lambda';
+import {
+  BatchProcessor,
+  EventType,
+  processPartialResponse,
+} from '@aws-lambda-powertools/batch';
+import { getParameter, SsmParameters } from '@/utils/ssm-client';
+import { getNotificationPayload, getSmmSecret } from '@/utils';
+import { createUnsMtlsClientFromSecrets } from '@/utils/uns-client';
+import { DynamoEvent } from '@/types/event';
 
-import { logger, metrics } from '@/utils/observability';
+const processor = new BatchProcessor(EventType.DynamoDBStreams); // (1)!
+const logger = new Logger();
 
-export const handler = async (event: DynamoDBStreamEvent) => {
-  try {
-    const recordCount = event.Records.length;
-
-    logger.info('single-event', { event });
-
-    metrics.addMetric(
-      'EventStoreRecordsReceived',
-      MetricUnit.Count,
-      recordCount,
+const recordHandler = async (record: DynamoDBRecord): Promise<void> => {
+  if (record.dynamodb && record.dynamodb.NewImage) {
+    logger.info('Processing record', { record: record.dynamodb.NewImage });
+    const message = record.dynamodb.NewImage;
+    const payload = getNotificationPayload(
+      message as unknown as DynamoEvent,
+      'instant',
     );
+    if (payload) {
+      // temp commented out copied from the original solution this will prob be part of this solution
+      const [apiUrl, certSecretArn, keySecretArn] = await Promise.all([
+        getParameter(SsmParameters.UnsApiUrl),
+        getParameter(SsmParameters.UnsMtlsCertArn),
+        getParameter(SsmParameters.UnsMtlsKeyArn),
+      ]);
 
-    // temp commented out copied from the original solution this will prob be part of this solution
-    // const [apiUrl, certSecretArn, keySecretArn] = await Promise.all([
-    //   getParameter(SsmParameters.UnsApiUrl),
-    //   getParameter(SsmParameters.UnsMtlsCertArn),
-    //   getParameter(SsmParameters.UnsMtlsKeyArn),
-    // ]);
+      const apiKeySecretArn = process.env.UNS_API_KEY_ARN as string;
+      const apiKey = await getSmmSecret(apiKeySecretArn);
 
-    // const apiKeySecretArn = process.env.UNS_API_KEY_ARN as string;
-    // const apiKey = await getSmmSecret(apiKeySecretArn);
+      const uns = await createUnsMtlsClientFromSecrets({
+        apiUrl,
+        certSecretArn,
+        keySecretArn,
+        apiKey,
+      });
 
-    // const uns = await createUnsMtlsClientFromSecrets({
-    //   apiUrl,
-    //   certSecretArn,
-    //   keySecretArn,
-    //   apiKey,
-    // });
+      const result = await uns.notification.sendToSubscribers([payload]);
+      if (!result.ok) {
+        logger.error({
+          message: `Error from uns api`,
+          result: result,
+          eventTimestamp: message.eventTimestamp,
+          compositeKey: message.compositeKey,
+          schedule: message.schedule,
+        });
+        throw new Error('UNS error');
+      }
+    }
 
-    // const result = await uns.notification.sendToSubscribers([]);
-    // if (!result.ok) {
-    //   logger.error({
-    //     message: `Error from uns api`,
-    //     result: result,
-    //     triggeredAt: event.triggeredAt,
-    //     schedule: event.schedule,
-    //   });
-    //   throw new Error('UNS error');
-    // }
-
-    return true;
-  } catch (error: unknown) {
-    const handledError =
-      error instanceof Error
-        ? error
-        : new Error('Unknown EventStore processing error', {
-            cause: error,
-          });
-
-    logger.error('Failed to process EventStore stream records', {
-      error: handledError,
-    });
-
-    throw error;
-  } finally {
-    metrics.publishStoredMetrics();
+    return;
   }
 };
+
+export const handler: DynamoDBStreamHandler = async (event, context) =>
+  processPartialResponse(event, recordHandler, processor, {
+    context,
+  });
