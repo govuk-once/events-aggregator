@@ -178,6 +178,8 @@ export class EventsAggregatorStack extends cdk.Stack {
           UNS_API_KEY_ARN: unsApiKeySecret.secretArn,
           INCOMING_EVENTS_QUEUE_URL: incomingEventsQueue.queue.queueName,
           SOURCE_TABLE_NAME: this.sourceSourceTable.tableName,
+          POWERTOOLS_SERVICE_NAME: 'events-aggregator-travel-digestion',
+          POWERTOOLS_METRICS_NAMESPACE: 'EventsAggregator',
         },
         retentionDays: logs.RetentionDays.ONE_WEEK,
         runtime: cdk.aws_lambda.Runtime.NODEJS_LATEST,
@@ -209,6 +211,8 @@ export class EventsAggregatorStack extends cdk.Stack {
       environment: {
         SSM_PREFIX: this.sharedNamespace,
         UNS_API_KEY_ARN: unsApiKeySecret.secretArn,
+        POWERTOOLS_SERVICE_NAME: 'events-aggregator-single-event',
+        POWERTOOLS_METRICS_NAMESPACE: 'EventsAggregator',
       },
       retentionDays: logs.RetentionDays.ONE_WEEK,
       runtime: cdk.aws_lambda.Runtime.NODEJS_LATEST,

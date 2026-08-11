@@ -6,13 +6,13 @@ import {
   getStartTime,
   getTravelChangesSince,
 } from '@/utils';
+import { logger, metrics, tracer } from '@/utils/observability';
+import { segment } from '@/utils/segment';
 import {
   sendIncomingEventToQueue,
   travelEventToIncomingEvent,
 } from '@/utils/sqs';
-import { Logger } from '@aws-lambda-powertools/logger';
-
-const logger = new Logger();
+import { MetricUnit } from '@aws-lambda-powertools/metrics';
 
 // Derived from the utils rather than re-declared, so these cannot drift.
 // Swap in the named types from '@/types' if they are exported.
@@ -62,7 +62,10 @@ const processSource = async (
   startTime: StartTime,
   context: ScheduleContext,
 ): Promise<void> => {
-  const country = await getCountryChanges(source.URL);
+  const country = await segment(tracer, 'GetCountryChanges', async () =>
+    getCountryChanges(source.URL),
+  );
+
   const countryChanges = getEventsFromCountry(country, startTime);
 
   if (!countryChanges?.length) {
@@ -73,16 +76,42 @@ const processSource = async (
     return;
   }
 
-  await publishCountryChanges(countryChanges, country.details);
+  await segment(tracer, 'PublishCountryChanges', async (subsegment) => {
+    subsegment.addAnnotation('EventCount', countryChanges.length);
+
+    await publishCountryChanges(countryChanges, country.details);
+  });
+
+  metrics.addMetric(
+    'TravelEventsQueued',
+    MetricUnit.Count,
+    countryChanges.length,
+  );
 };
 
 export const handler = async (event: TravelAlertScheduleEvent) => {
   try {
     const startTime = getStartTime(event.triggeredAt, event.schedule);
     const context = scheduleContext(event, startTime);
-    const travelChanges = await getTravelChangesSince(startTime);
+    const travelChanges = await segment(
+      tracer,
+      'GetTravelChanges',
+      async (subsegment) => {
+        subsegment.addAnnotation('Schedule', event.schedule);
 
-    if (travelChanges.results.length < 1) {
+        return getTravelChangesSince(startTime);
+      },
+    );
+
+    const resultCount = travelChanges.results.length;
+
+    metrics.addMetric(
+      'TravelAdviceResultsRetrieved',
+      MetricUnit.Count,
+      resultCount,
+    );
+
+    if (resultCount < 1) {
       logger.info({ message: 'No travel changes found', ...context });
       return false;
     }
@@ -91,9 +120,17 @@ export const handler = async (event: TravelAlertScheduleEvent) => {
       compositeKeyFromLink(link),
     );
 
-    const sources = await getEventSourceByCompositeKeys(
-      compositeKeys,
-      process.env.SOURCE_TABLE_NAME as string,
+    const sources = await segment(tracer, 'GetEventSources', async () =>
+      getEventSourceByCompositeKeys(
+        compositeKeys,
+        process.env.SOURCE_TABLE_NAME as string,
+      ),
+    );
+
+    metrics.addMetric(
+      'EventSourcesRetrieved',
+      MetricUnit.Count,
+      sources.length,
     );
 
     if (sources.length < 1) {
@@ -118,5 +155,7 @@ export const handler = async (event: TravelAlertScheduleEvent) => {
     });
 
     throw error;
+  } finally {
+    metrics.publishStoredMetrics();
   }
 };

@@ -2,6 +2,7 @@ import { GetParametersByPathCommand, SSMClient } from '@aws-sdk/client-ssm';
 import { Logger } from '@aws-lambda-powertools/logger';
 
 import { InMemoryTTLCache } from './in-memory-ttl-cache.js';
+import { tracer } from './observability.js';
 
 export const SsmParameters = {
   GovukFeedUrl: 'govuk-feed-url',
@@ -20,7 +21,7 @@ const logger = new Logger({
   serviceName: 'ssm-client',
 });
 
-const ssmClient = new SSMClient({});
+const ssmClient = tracer.captureAWSv3Client(new SSMClient({}));
 
 const cache = new InMemoryTTLCache<string, string>(TTL_MS);
 

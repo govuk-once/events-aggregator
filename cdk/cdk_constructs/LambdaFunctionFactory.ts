@@ -77,6 +77,8 @@ export class LambdaFactory extends FactoryBase {
 
     namedProps.logGroup = log;
 
+    namedProps.tracing = namedProps.tracing ?? lambda.Tracing.ACTIVE;
+
     const newFunction = new lambda.Function(
       this.scope,
       this.getResourceId(id),
