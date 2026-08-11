@@ -9,50 +9,58 @@ import { getParameter, SsmParameters } from '@/utils/ssm-client';
 import { getNotificationPayload, getSmmSecret } from '@/utils';
 import { createUnsMtlsClientFromSecrets } from '@/utils/uns-client';
 import { DynamoEvent } from '@/types/event';
+import { unmarshall } from '@aws-sdk/util-dynamodb';
+import { AttributeValue } from '@aws-sdk/client-dynamodb';
 
 const processor = new BatchProcessor(EventType.DynamoDBStreams); // (1)!
 const logger = new Logger();
 
 const recordHandler = async (record: DynamoDBRecord): Promise<void> => {
-  if (record.dynamodb && record.dynamodb.NewImage) {
-    logger.info('Processing record', { record: record.dynamodb.NewImage });
-    const message = record.dynamodb.NewImage;
-    const payload = getNotificationPayload(
-      message as unknown as DynamoEvent,
-      'instant',
-    );
-    if (payload) {
-      // temp commented out copied from the original solution this will prob be part of this solution
-      const [apiUrl, certSecretArn, keySecretArn] = await Promise.all([
-        getParameter(SsmParameters.UnsApiUrl),
-        getParameter(SsmParameters.UnsMtlsCertArn),
-        getParameter(SsmParameters.UnsMtlsKeyArn),
-      ]);
+  try {
+    if (record.dynamodb && record.dynamodb.NewImage) {
+      const message = unmarshall(
+        record.dynamodb.NewImage as Record<string, AttributeValue>,
+      ) as DynamoEvent;
 
-      const apiKeySecretArn = process.env.UNS_API_KEY_ARN as string;
-      const apiKey = await getSmmSecret(apiKeySecretArn);
+      const payload = getNotificationPayload(message, 'instant');
 
-      const uns = await createUnsMtlsClientFromSecrets({
-        apiUrl,
-        certSecretArn,
-        keySecretArn,
-        apiKey,
-      });
+      if (payload) {
+        const [apiUrl, certSecretArn, keySecretArn] = await Promise.all([
+          getParameter(SsmParameters.UnsApiUrl),
+          getParameter(SsmParameters.UnsMtlsCertArn),
+          getParameter(SsmParameters.UnsMtlsKeyArn),
+        ]);
 
-      const result = await uns.notification.sendToSubscribers([payload]);
-      if (!result.ok) {
-        logger.error({
-          message: `Error from uns api`,
-          result: result,
-          eventTimestamp: message.eventTimestamp,
-          compositeKey: message.compositeKey,
-          schedule: message.schedule,
+        const apiKeySecretArn = process.env.UNS_API_KEY_ARN as string;
+        const apiKey = await getSmmSecret(apiKeySecretArn);
+
+        const uns = await createUnsMtlsClientFromSecrets({
+          apiUrl,
+          certSecretArn,
+          keySecretArn,
+          apiKey,
         });
-        throw new Error('UNS error');
+        const result = await uns.notification.sendToSubscribers([payload]);
+        if (!result.ok) {
+          logger.error({
+            message: `Error from uns api`,
+            result: result,
+            eventTimestamp: message.eventTimestamp,
+            compositeKey: message.compositeKey,
+            schedule: 'INSTANT',
+          });
+          throw new Error('UNS error');
+        }
       }
     }
-
-    return;
+  } catch (error) {
+    if (error instanceof Error) {
+      logger.error({
+        message: error.message,
+        schedule: 'INSTANT',
+      });
+      throw error;
+    }
   }
 };
 
