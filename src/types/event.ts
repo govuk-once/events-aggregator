@@ -1,3 +1,5 @@
+import type { ScheduleFrequency } from '@/types';
+
 export type IncomingEvent = {
   eventID: string;
   eventTimestamp: string;
@@ -24,4 +26,12 @@ export type DynamoEvent = {
     DAILY?: string;
     WEEKLY?: string;
   };
+};
+
+// The subset of ScheduleFrequency without 'hourly'
+export type DigestCadence = Extract<ScheduleFrequency, 'daily' | 'weekly'>;
+
+export type DigestScheduleEvent = {
+  triggeredAt: string;
+  schedule: DigestCadence;
 };

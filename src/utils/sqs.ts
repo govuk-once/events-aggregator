@@ -1,5 +1,5 @@
 import { ChangeHistory, CountryDetails } from '@/types';
-import { IncomingEvent } from '@/types/events';
+import { IncomingEvent } from '@/types/event';
 import {
   SQSClient,
   SendMessageCommand,
