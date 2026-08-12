@@ -260,7 +260,7 @@ export class EventsAggregatorStack extends cdk.Stack {
       apiKeySecret: unsApiKeySecret,
       kmsKeyArn: kmsArn,
     });
-    
+
     const eventProcessingLambda = this.lambdaFactory.createLambda(
       'EventProcessing',
       {
@@ -278,7 +278,7 @@ export class EventsAggregatorStack extends cdk.Stack {
         skipCheckovRule: 'CKV_AWS_59',
       },
     );
-    
+
     this.grantTableAccess(eventProcessingLambda, 'write');
     eventProcessingLambda.addEventSource(
       new SqsEventSource(incomingEventsQueue.queue, {
@@ -288,7 +288,7 @@ export class EventsAggregatorStack extends cdk.Stack {
       }),
     );
 
-    const aggregatedEventLambda = lambdaFactory.createLambda(
+    const aggregatedEventLambda = this.lambdaFactory.createLambda(
       'AggregatedEventLambda',
       {
         code: lambda.Code.fromAsset(
@@ -312,7 +312,7 @@ export class EventsAggregatorStack extends cdk.Stack {
         runtime: cdk.aws_lambda.Runtime.NODEJS_LATEST,
         skipCheckovRule: 'CKV_AWS_59',
       },
-    );   
+    );
 
     this.grantUnsAccess(aggregatedEventLambda, {
       certArn: certSecret,
