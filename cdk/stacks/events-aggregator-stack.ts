@@ -233,6 +233,13 @@ export class EventsAggregatorStack extends cdk.Stack {
             sortKeyName: 'eventTimestamp',
             sortKeyType: AttributeType.STRING,
           },
+          {
+            indexName: 'namespace-timestamp-query',
+            partitionKeyName: 'namespace',
+            partitionKeyType: AttributeType.STRING,
+            sortKeyName: 'eventTimestamp',
+            sortKeyType: AttributeType.STRING,
+          },
         ],
         pointInTimeRecovery: false,
         removalPolicy: isEphemeralEnvironment()
@@ -249,6 +256,63 @@ export class EventsAggregatorStack extends cdk.Stack {
       keyArn: keySecret,
       apiKeySecret: unsApiKeySecret,
       kmsKeyArn: kmsArn,
+    });
+
+    const aggregatedEventLambda = lambdaFactory.createLambda(
+      'AggregatedEventLambda',
+      {
+        code: lambda.Code.fromAsset(
+          join(__dirname, '../../dist/aggregated-event'),
+        ),
+        description:
+          'Create and send daily or weekly aggregated event digests to UNS',
+        duration: 30,
+        key: logKey,
+        handler: 'index.handler',
+        memorySize: 128,
+        name: 'aggregated-event',
+        environment: {
+          SSM_PREFIX: this.sharedNamespace,
+          UNS_API_KEY_ARN: unsApiKeySecret.secretArn,
+          EVENT_STORE_TABLE_NAME: this.eventStoreTable.table.tableName,
+          POWERTOOLS_SERVICE_NAME: 'events-aggregator-aggregated-event',
+          POWERTOOLS_METRICS_NAMESPACE: 'EventsAggregator',
+        },
+        retentionDays: logs.RetentionDays.ONE_WEEK,
+        runtime: cdk.aws_lambda.Runtime.NODEJS_LATEST,
+        skipCheckovRule: 'CKV_AWS_59',
+      },
+    );
+
+    this.grantUnsAccess(aggregatedEventLambda, {
+      certArn: certSecret,
+      keyArn: keySecret,
+      apiKeySecret: unsApiKeySecret,
+      kmsKeyArn: kmsArn,
+    });
+
+    aggregatedEventLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['dynamodb:Query', 'dynamodb:UpdateItem'],
+        resources: [
+          this.eventStoreTable.table.tableArn,
+          `${this.eventStoreTable.table.tableArn}/index/namespace-timestamp-query`,
+        ],
+      }),
+    );
+
+    // EventBridge schedules — daily and weekly only
+    (['daily', 'weekly'] as const).forEach((frequency) => {
+      eventBridgeFactory.createScheduledRule(`${frequency}-digest-schedule`, {
+        name: `${frequency.toUpperCase()}DigestSchedule`,
+        targetFunction: aggregatedEventLambda,
+        frequency,
+        enabled: true,
+        eventPayload: {
+          triggeredAt: events.EventField.fromPath('$.time'),
+          schedule: frequency,
+        },
+      });
     });
 
     (['hourly', 'daily', 'weekly'] as ScheduleFrequency[]).map(
