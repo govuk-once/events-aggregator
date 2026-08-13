@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { basename } from 'node:path';
 import { parseArgs } from 'node:util';
 import { v5 as uuidv5 } from 'uuid';
