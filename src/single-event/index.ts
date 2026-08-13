@@ -11,6 +11,7 @@ import { createUnsMtlsClientFromSecrets } from '@/utils/uns-client';
 import { DynamoEvent } from '@/types/event';
 import { unmarshall } from '@aws-sdk/util-dynamodb';
 import { AttributeValue } from '@aws-sdk/client-dynamodb';
+import { updateEventStatus } from '@/utils/event';
 
 const processor = new BatchProcessor(EventType.DynamoDBStreams); // (1)!
 const logger = new Logger();
@@ -51,6 +52,26 @@ const recordHandler = async (record: DynamoDBRecord): Promise<void> => {
           });
           throw new Error('UNS error');
         }
+
+        const tableName = process.env.EVENTS_TABLE_NAME;
+        if (!tableName) {
+          logger.error({
+            message: `No table env`,
+            eventTimestamp: message.eventTimestamp,
+            compositeKey: message.compositeKey,
+            schedule: 'INSTANT',
+          });
+          throw new Error('No table env passed');
+        }
+
+        updateEventStatus(
+          tableName,
+          {
+            eventID: message.eventID,
+            compositeKey: message.compositeKey,
+          },
+          { instant: message.eventTimestamp },
+        );
       }
     }
   } catch (error) {

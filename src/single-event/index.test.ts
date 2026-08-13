@@ -19,11 +19,15 @@ import { handler } from '.';
 import { getSecret } from '@aws-lambda-powertools/parameters/secrets';
 import { Logger } from '@aws-lambda-powertools/logger';
 import nock from 'nock';
+import { mockClient } from 'aws-sdk-client-mock';
+import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+
+const dynamodbClient = mockClient(DynamoDBDocumentClient);
 
 vi.stubEnv('UNS_API_URL', 'http://uns.api');
 vi.stubEnv('UNS_API_KEY_ARN', 'arn:uns-key');
 vi.stubEnv('SSM_PREFIX', 'prefix');
-
+vi.stubEnv('EVENTS_TABLE_NAME', 'event-table');
 const { sendMock } = vi.hoisted(() => ({
   sendMock: vi.fn(),
 }));
@@ -183,6 +187,10 @@ describe('Single Event', () => {
     });
 
     mockGetSecret.mockResolvedValue('-----BEGIN');
+
+    dynamodbClient.on(UpdateCommand).resolves({
+      Attributes: { processingStatus: { instant: '2016-09-09T10:00:00Z' } },
+    });
 
     const unsScope = nock('http://uns.api')
       .post('/v1/send-to-group', [
