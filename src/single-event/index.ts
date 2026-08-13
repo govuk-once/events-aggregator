@@ -64,7 +64,7 @@ const recordHandler = async (record: DynamoDBRecord): Promise<void> => {
           throw new Error('No table env passed');
         }
 
-        updateEventStatus(
+        await updateEventStatus(
           tableName,
           {
             eventID: message.eventID,

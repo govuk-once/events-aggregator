@@ -74,9 +74,31 @@ const mockGetSecret = vi.mocked(getSecret) as unknown as ReturnType<
   typeof vi.fn
 >;
 
+const mockParams = {
+  Parameters: [
+    {
+      Name: '/prefix/uns-api-url',
+      Value: 'http://uns.api',
+    },
+    {
+      Name: '/prefix/uns-api-key',
+      Value: 'api_key',
+    },
+    {
+      Name: '/prefix/uns-mtls-cert-arn',
+      Value: 'arn::cert',
+    },
+    {
+      Name: '/prefix/uns-mtls-key-arn',
+      Value: 'arn:key',
+    },
+  ],
+};
+
 const context = { awsRequestId: 'req-1' } as Context;
 
 const newImage = (compositeKey = 'travel/spain') => ({
+  eventID: { S: 'evt-1' },
   compositeKey: { S: compositeKey },
   eventTimestamp: { S: '2026-08-10T09:14:22.031Z' },
   group: { S: compositeKey.split('/')[1] },
@@ -124,6 +146,7 @@ describe('Single Event', () => {
     loggerErrorSpy.mockClear();
     sendMock.mockClear();
     mockGetSecret.mockClear();
+    dynamodbClient.reset();
   });
 
   afterEach(() => {
@@ -165,26 +188,7 @@ describe('Single Event', () => {
   });
 
   it('Should send a single event to uns', async () => {
-    sendMock.mockResolvedValueOnce({
-      Parameters: [
-        {
-          Name: '/prefix/uns-api-url',
-          Value: 'http://uns.api',
-        },
-        {
-          Name: '/prefix/uns-api-key',
-          Value: 'api_key',
-        },
-        {
-          Name: '/prefix/uns-mtls-cert-arn',
-          Value: 'arn::cert',
-        },
-        {
-          Name: '/prefix/uns-mtls-key-arn',
-          Value: 'arn:key',
-        },
-      ],
-    });
+    sendMock.mockResolvedValueOnce(mockParams);
 
     mockGetSecret.mockResolvedValue('-----BEGIN');
 
@@ -212,31 +216,18 @@ describe('Single Event', () => {
     expect(response).toEqual({
       batchItemFailures: [],
     });
+    const updates = dynamodbClient.commandCalls(UpdateCommand);
+    expect(updates).toHaveLength(1);
+    expect(updates[0].args[0].input).toMatchObject({
+      TableName: 'event-table',
+      Key: { eventID: 'evt-1', compositeKey: 'travel/spain' },
+    });
 
     unsScope.done();
   });
 
   it('Should log an error if uns api fails', async () => {
-    sendMock.mockResolvedValueOnce({
-      Parameters: [
-        {
-          Name: '/prefix/uns-api-url',
-          Value: 'http://uns.api',
-        },
-        {
-          Name: '/prefix/uns-api-key',
-          Value: 'api_key',
-        },
-        {
-          Name: '/prefix/uns-mtls-cert-arn',
-          Value: 'arn::cert',
-        },
-        {
-          Name: '/prefix/uns-mtls-key-arn',
-          Value: 'arn:key',
-        },
-      ],
-    });
+    sendMock.mockResolvedValueOnce(mockParams);
 
     mockGetSecret.mockResolvedValue('-----BEGIN');
 
@@ -276,26 +267,7 @@ describe('Single Event', () => {
   });
 
   it('Should handle secret failure', async () => {
-    sendMock.mockResolvedValueOnce({
-      Parameters: [
-        {
-          Name: '/prefix/uns-api-url',
-          Value: 'http://uns.api',
-        },
-        {
-          Name: '/prefix/uns-api-key',
-          Value: 'api_key',
-        },
-        {
-          Name: '/prefix/uns-mtls-cert-arn',
-          Value: 'arn::cert',
-        },
-        {
-          Name: '/prefix/uns-mtls-key-arn',
-          Value: 'arn:key',
-        },
-      ],
-    });
+    sendMock.mockResolvedValueOnce(mockParams);
 
     mockGetSecret.mockResolvedValue(undefined);
 
@@ -346,6 +318,30 @@ describe('Single Event', () => {
 
     expect(loggerErrorSpy).toHaveBeenCalledWith({
       message: 'No table env passed',
+      schedule: 'INSTANT',
+    });
+
+    unsScope.done();
+  });
+
+  it('Should fail the record if the status update fails', async () => {
+    vi.stubEnv('EVENTS_TABLE_NAME', 'events-table');
+
+    sendMock.mockResolvedValueOnce(mockParams);
+    mockGetSecret.mockResolvedValue('-----BEGIN');
+
+    const err = new Error('Conditional check failed');
+    err.name = 'ConditionalCheckFailedException';
+    dynamodbClient.on(UpdateCommand).rejectsOnce(err);
+
+    const unsScope = nock('http://uns.api')
+      .post('/v1/send-to-group')
+      .reply(200, {}, { content_type: 'application/json' });
+
+    await expect(invoke([makeRecord()])).rejects.toThrow();
+
+    expect(loggerErrorSpy).toHaveBeenCalledWith({
+      message: 'No event evt-1 / travel/spain to update',
       schedule: 'INSTANT',
     });
 

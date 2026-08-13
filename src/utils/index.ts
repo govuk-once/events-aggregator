@@ -93,9 +93,9 @@ export const getNotificationPayload = (
     Namespace: dbEntry.namespace,
     Group: dbEntry.group,
     Subgroup: schedule,
-    NotificationTitle: `Travel Advice - ${dbEntry.group.toLocaleUpperCase()}`,
+    NotificationTitle: `Travel Advice - ${dbEntry.group?.toLocaleUpperCase()}`,
     NotificationBody: `There's been a change in country you are interested in`,
-    MessageTitle: `${dbEntry.group.toLocaleUpperCase()} Travel Advice`,
+    MessageTitle: `${dbEntry.group?.toLocaleUpperCase()} Travel Advice`,
     MessageBody: dbEntry.eventNote,
   };
 };
