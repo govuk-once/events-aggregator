@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { vi, beforeEach, afterEach, describe, it } from 'vitest';
+import { vi, beforeEach, afterEach, describe, it, expect } from 'vitest';
 import { mockClient } from 'aws-sdk-client-mock';
 import { DescribeTableCommand, DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
@@ -143,7 +143,12 @@ describe('seed-countries', () => {
 
   describe('buildSource', () => {
     it('builds the Source shape and nothing else', () => {
-      const source = buildSource('myanmar', '2026-08-05T09:14:22.031Z');
+      const source = buildSource(
+        'myanmar',
+        'Myanmar',
+        [],
+        '2026-08-05T09:14:22.031Z',
+      );
 
       expect(source).toEqual({
         sourceID: 'f94d09a5-6da5-5d27-b829-56215f36dce3',
@@ -154,12 +159,19 @@ describe('seed-countries', () => {
         URL: 'https://www.gov.uk/api/content/foreign-travel-advice/myanmar',
         sourceEnabled: true,
         lastUpdated: '2026-08-05T09:14:22.031Z',
+        sourceDetail: {
+          slug: 'myanmar',
+          country: 'Myanmar',
+          synonyms: [],
+        },
       });
     });
 
     it('omits keyARN entirely rather than setting it undefined', () => {
       // Absence must not depend on the document client's removeUndefinedValues.
-      expect('keyARN' in buildSource('myanmar', 'now')).toBe(false);
+      expect('keyARN' in buildSource('myanmar', 'Myanmar', [], 'now')).toBe(
+        false,
+      );
     });
   });
 

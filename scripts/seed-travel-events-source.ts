@@ -55,6 +55,7 @@ export type Source = {
   sourceEnabled: boolean;
   keyARN?: string;
   lastUpdated: string;
+  sourceDetail: Record<string, any>;
 };
 
 export interface Config {
@@ -273,7 +274,12 @@ export function sourceIdFor(
   return uuidv5(`${namespace}#${group}#${url}`, SEED_NAMESPACE);
 }
 
-export function buildSource(slug: string, now: string): Source {
+export function buildSource(
+  slug: string,
+  country: string,
+  synonyms: string[],
+  now: string,
+): Source {
   const URL = contentUrlForSlug(slug);
 
   // `name` and `synonyms` from GOV.UK are deliberately dropped: Source has no
@@ -287,6 +293,11 @@ export function buildSource(slug: string, now: string): Source {
     accessMethod: 'api',
     URL,
     sourceEnabled: true,
+    sourceDetail: {
+      slug,
+      country,
+      synonyms: synonyms ? synonyms : [],
+    },
     lastUpdated: now,
   };
 }
@@ -295,7 +306,9 @@ export function buildDesiredSources(
   countries: CountryItem[],
   now: string,
 ): Source[] {
-  return countries.map((country) => buildSource(country.slug, now));
+  return countries.map((country) =>
+    buildSource(country.slug, country.name, country.synonyms, now),
+  );
 }
 
 // ── Current state ───────────────────────────────────────────────────────────
