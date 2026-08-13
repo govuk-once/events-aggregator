@@ -188,7 +188,7 @@ describe('Single Event', () => {
 
     mockGetSecret.mockResolvedValue('-----BEGIN');
 
-    dynamodbClient.on(UpdateCommand).resolves({
+    dynamodbClient.on(UpdateCommand).resolvesOnce({
       Attributes: { processingStatus: { instant: '2016-09-09T10:00:00Z' } },
     });
 
@@ -316,5 +316,39 @@ describe('Single Event', () => {
       message: 'Secret Error',
       schedule: 'INSTANT',
     });
+  });
+
+  it('Should fail if tableName environment not set', async () => {
+    vi.stubEnv('EVENTS_TABLE_NAME', undefined);
+
+    mockGetSecret.mockResolvedValue('-----BEGIN');
+
+    dynamodbClient.on(UpdateCommand).resolvesOnce({
+      Attributes: { processingStatus: { instant: '2016-09-09T10:00:00Z' } },
+    });
+
+    const unsScope = nock('http://uns.api')
+      .post('/v1/send-to-group', [
+        {
+          Namespace: 'travel',
+          Group: 'spain',
+          Subgroup: 'instant',
+          NotificationTitle: 'Travel Advice - SPAIN',
+          NotificationBody:
+            "There's been a change in country you are interested in",
+          MessageTitle: 'SPAIN Travel Advice',
+          MessageBody: 'Storm warning',
+        },
+      ])
+      .reply(200, {}, { content_type: 'application/json' });
+
+    await expect(invoke([makeRecord()])).rejects.toThrow();
+
+    expect(loggerErrorSpy).toHaveBeenCalledWith({
+      message: 'No table env passed',
+      schedule: 'INSTANT',
+    });
+
+    unsScope.done();
   });
 });
