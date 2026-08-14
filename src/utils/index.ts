@@ -5,6 +5,8 @@ import type {
   ScheduleFrequency,
   SearchResponse,
 } from '@/types';
+import type { DynamoEvent } from '@/types/event';
+
 import { getSecret } from '@aws-lambda-powertools/parameters/secrets';
 
 export const SEARCH_BASE = 'https://www.gov.uk/api/search.json';
@@ -84,24 +86,17 @@ type InstantSchedule = 'instant';
 type Frequency = ScheduleFrequency | InstantSchedule;
 
 export const getNotificationPayload = (
-  country: CountryResponse,
-  timestamp: string,
+  dbEntry: DynamoEvent,
   schedule: Frequency,
 ): NotificationPayload | null => {
-  const changeCount = country.details.change_history.filter(
-    ({ public_timestamp }) => public_timestamp >= timestamp,
-  ).length;
-
-  if (changeCount < 1) return null;
-
   return {
-    Namespace: `travel`,
-    Group: country.details.country.slug,
+    Namespace: dbEntry.namespace,
+    Group: dbEntry.group,
     Subgroup: schedule,
-    NotificationTitle: `Travel Advice - ${country.details.country.name}`,
+    NotificationTitle: `Travel Advice - ${dbEntry.group?.toLocaleUpperCase()}`,
     NotificationBody: `There's been a change in country you are interested in`,
-    MessageTitle: `${country.details.country.name} Travel Advice`,
-    MessageBody: `Changes made :\n\n${country.details.change_history[0].note}\n\n \n \n \n\nTime updated :\n${country.details.change_history[0].public_timestamp}\n\n\n`,
+    MessageTitle: `${dbEntry.group?.toLocaleUpperCase()} Travel Advice`,
+    MessageBody: dbEntry.eventNote,
   };
 };
 
