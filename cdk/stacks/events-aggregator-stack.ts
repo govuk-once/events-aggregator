@@ -11,7 +11,7 @@ import { LambdaFactory } from '../cdk_constructs/LambdaFunctionFactory';
 import {
   getEnvironment,
   getResourceNamePrefix,
-  GovUkOnceEnvironments,
+  GovUkOnceFullEnvironments,
   isEphemeralEnvironment,
 } from '../constants/environments';
 import {
@@ -54,15 +54,15 @@ export type FlexParamsConfig = {
 };
 
 const flexParams: FlexParamsConfig = {
-  [GovUkOnceEnvironments.Dev]: {
+  [GovUkOnceFullEnvironments.Dev]: {
     accountId: '308036881389',
     externalId: 'flex-dev',
   },
-  [GovUkOnceEnvironments.Stag]: {
+  [GovUkOnceFullEnvironments.Stag]: {
     accountId: '831869585824',
     externalId: 'flex-stag',
   },
-  [GovUkOnceEnvironments.Prod]: {
+  [GovUkOnceFullEnvironments.Prod]: {
     accountId: '755352604849',
     externalId: 'flex-prod',
   },
@@ -147,7 +147,7 @@ export class EventsAggregatorStack extends cdk.Stack {
     );
 
     const incomingEventsQueue = this.sqsFactory.createQueueWithDeadLetter(
-      'IncomingEventsQueue',
+      'InEventsQueue',
       {
         name: 'incoming-events',
         fifo: true,
@@ -159,7 +159,7 @@ export class EventsAggregatorStack extends cdk.Stack {
 
     const eventBridgeFactory = new EventBridgeScheduleFactory(
       this,
-      'EventBridgeSchedule',
+      'EBSchedule',
     );
 
     const logKey = new kms.Key(this, 'LogEncryptionKey', {
@@ -390,8 +390,16 @@ export class EventsAggregatorStack extends cdk.Stack {
       roleName: `${namePrefix}-flex-travel-read`,
       description:
         'Assumed by the FLEX travel sercice gateway to read travel sources',
-      assumedBy: new iam.AccountPrincipal(flexParams[env].accountId),
-      externalIds: [flexParams[env].externalId],
+      assumedBy: new iam.AccountPrincipal(
+        flexParams[env]
+          ? flexParams[env].accountId
+          : flexParams['development'].accountId,
+      ),
+      externalIds: [
+        flexParams[env]
+          ? flexParams[env].externalId
+          : flexParams['development'].externalId,
+      ],
       maxSessionDuration: cdk.Duration.hours(1),
     });
 
