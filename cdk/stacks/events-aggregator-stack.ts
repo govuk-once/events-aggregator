@@ -11,6 +11,7 @@ import { LambdaFactory } from '../cdk_constructs/LambdaFunctionFactory';
 import {
   getEnvironment,
   getResourceNamePrefix,
+  GovUkOnceEnvironments,
   isEphemeralEnvironment,
 } from '../constants/environments';
 import {
@@ -42,6 +43,30 @@ export interface EventsAggregatorStackProps extends cdk.StackProps {
   environment: string;
   costCenter: string;
 }
+
+export type AccountDetails = {
+  accountId: string;
+  externalId: string;
+};
+
+export type FlexParamsConfig = {
+  [key: string]: AccountDetails;
+};
+
+const flexParams: FlexParamsConfig = {
+  [GovUkOnceEnvironments.Dev]: {
+    accountId: '308036881389',
+    externalId: 'flex-dev',
+  },
+  [GovUkOnceEnvironments.Stag]: {
+    accountId: '831869585824',
+    externalId: 'flex-stag',
+  },
+  [GovUkOnceEnvironments.Prod]: {
+    accountId: '755352604849',
+    externalId: 'flex-prod',
+  },
+};
 
 const constants = {
   SOURCE_STORE_TABLE_NAME_VARIABLE: 'sourceStore',
@@ -360,6 +385,21 @@ export class EventsAggregatorStack extends cdk.Stack {
         });
       },
     );
+
+    const flexTravelReadRole = new iam.Role(this, 'FlexTravelReadRole', {
+      roleName: `${namePrefix}-flex-travel-read`,
+      description:
+        'Assumed by the FLEX travel sercice gateway to read travel sources',
+      assumedBy: new iam.AccountPrincipal(flexParams[env].accountId),
+      externalIds: [flexParams[env].externalId],
+      maxSessionDuration: cdk.Duration.hours(1),
+    });
+
+    this.sourceSourceTable.grantReadData(flexTravelReadRole);
+
+    new cdk.CfnOutput(this, 'FlexTravelReadRoleArn', {
+      value: flexTravelReadRole.roleArn,
+    });
   }
 
   private grantUnsAccess(fn: lambda.Function, uns: IUnsConfig): void {
