@@ -44,30 +44,6 @@ export interface EventsAggregatorStackProps extends cdk.StackProps {
   costCenter: string;
 }
 
-export type AccountDetails = {
-  accountId: string;
-  externalId: string;
-};
-
-export type FlexParamsConfig = {
-  [key: string]: AccountDetails;
-};
-
-const flexParams: FlexParamsConfig = {
-  [GovUkOnceFullEnvironments.Dev]: {
-    accountId: '308036881389',
-    externalId: 'flex-dev',
-  },
-  [GovUkOnceFullEnvironments.Stag]: {
-    accountId: '831869585824',
-    externalId: 'flex-stag',
-  },
-  [GovUkOnceFullEnvironments.Prod]: {
-    accountId: '755352604849',
-    externalId: 'flex-prod',
-  },
-};
-
 const constants = {
   SOURCE_STORE_TABLE_NAME_VARIABLE: 'sourceStore',
   TABLE_NAME_VARIABLE: 'eventsStore',
@@ -90,6 +66,8 @@ export class EventsAggregatorStack extends cdk.Stack {
     super(scope, id, props);
 
     const env = getEnvironment();
+    const flexAccountId = process.env.FLEX_ACCOUNT_ID;
+    const flexExternalId = process.env.FLEX_EXTERNAL_ID;
     const namePrefix = getResourceNamePrefix();
     const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -390,16 +368,8 @@ export class EventsAggregatorStack extends cdk.Stack {
       roleName: `${namePrefix}-flex-travel-read`,
       description:
         'Assumed by the FLEX travel sercice gateway to read travel sources',
-      assumedBy: new iam.AccountPrincipal(
-        flexParams[env]
-          ? flexParams[env].accountId
-          : flexParams['development'].accountId,
-      ),
-      externalIds: [
-        flexParams[env]
-          ? flexParams[env].externalId
-          : flexParams['development'].externalId,
-      ],
+      assumedBy: new iam.AccountPrincipal(flexAccountId),
+      externalIds: [flexExternalId],
       maxSessionDuration: cdk.Duration.hours(1),
     });
 
