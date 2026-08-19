@@ -11,7 +11,6 @@ import { LambdaFactory } from '../cdk_constructs/LambdaFunctionFactory';
 import {
   getEnvironment,
   getResourceNamePrefix,
-  GovUkOnceFullEnvironments,
   isEphemeralEnvironment,
 } from '../constants/environments';
 import {
