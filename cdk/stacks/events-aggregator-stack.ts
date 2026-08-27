@@ -45,15 +45,6 @@ export interface EventsAggregatorStackProps extends cdk.StackProps {
   costCenter: string;
 }
 
-export type AccountDetails = {
-  accountId: string;
-  externalId: string;
-};
-
-export type FlexParamsConfig = {
-  [key: string]: AccountDetails;
-};
-
 const constants = {
   SOURCE_STORE_TABLE_NAME_VARIABLE: 'sourceStore',
   TABLE_NAME_VARIABLE: 'eventsStore',
