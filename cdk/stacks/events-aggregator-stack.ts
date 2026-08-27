@@ -49,7 +49,7 @@ const constants = {
 };
 
 export class EventsAggregatorStack extends cdk.Stack {
-  public readonly sourceSourceTable: ITable;
+  public readonly sourceTable: ITable;
   public readonly eventStoreTable: ITableWithStream;
   public readonly sharedNamespace: string = `ea-runner`;
 
@@ -65,6 +65,13 @@ export class EventsAggregatorStack extends cdk.Stack {
     super(scope, id, props);
 
     const env = getEnvironment();
+    const flexAccountId = process.env.FLEX_ACCOUNT_ID;
+    const flexExternalId = process.env.FLEX_EXTERNAL_ID;
+
+    if (!flexAccountId || !flexExternalId) {
+      throw new Error('Flex Account id and external id not set');
+    }
+
     const namePrefix = getResourceNamePrefix();
     const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -99,30 +106,27 @@ export class EventsAggregatorStack extends cdk.Stack {
         : cdk.RemovalPolicy.RETAIN,
     });
 
-    this.sourceSourceTable = this.dynamoFactory.createTable(
-      'EventSourceTable',
-      {
-        name: constants.SOURCE_STORE_TABLE_NAME_VARIABLE,
-        partitionKey: 'sourceID',
-        sortKey: 'compositeKey',
-        pointInTimeRecovery: false,
-        globalSecondaryIndexes: [
-          {
-            indexName: 'composite-query',
-            partitionKeyName: 'compositeKey',
-            partitionKeyType: AttributeType.STRING,
-            sortKeyName: 'lastUpdated',
-            sortKeyType: AttributeType.STRING,
-          },
-        ],
-        removalPolicy: isEphemeralEnvironment()
-          ? cdk.RemovalPolicy.DESTROY
-          : cdk.RemovalPolicy.RETAIN,
-      },
-    );
+    this.sourceTable = this.dynamoFactory.createTable('EventSourceTable', {
+      name: constants.SOURCE_STORE_TABLE_NAME_VARIABLE,
+      partitionKey: 'sourceID',
+      sortKey: 'compositeKey',
+      pointInTimeRecovery: false,
+      globalSecondaryIndexes: [
+        {
+          indexName: 'composite-query',
+          partitionKeyName: 'compositeKey',
+          partitionKeyType: AttributeType.STRING,
+          sortKeyName: 'lastUpdated',
+          sortKeyType: AttributeType.STRING,
+        },
+      ],
+      removalPolicy: isEphemeralEnvironment()
+        ? cdk.RemovalPolicy.DESTROY
+        : cdk.RemovalPolicy.RETAIN,
+    });
 
     const incomingEventsQueue = this.sqsFactory.createQueueWithDeadLetter(
-      'IncomingEventsQueue',
+      'InEventsQueue',
       {
         name: 'incoming-events',
         fifo: true,
@@ -134,7 +138,7 @@ export class EventsAggregatorStack extends cdk.Stack {
 
     const eventBridgeFactory = new EventBridgeScheduleFactory(
       this,
-      'EventBridgeSchedule',
+      'EBSchedule',
     );
 
     const logKey = new kms.Key(this, 'LogEncryptionKey', {
@@ -177,7 +181,7 @@ export class EventsAggregatorStack extends cdk.Stack {
           SSM_PREFIX: this.sharedNamespace,
           UNS_API_KEY_ARN: unsApiKeySecret.secretArn,
           INCOMING_EVENTS_QUEUE_URL: incomingEventsQueue.queue.queueUrl,
-          SOURCE_TABLE_NAME: this.sourceSourceTable.tableName,
+          SOURCE_TABLE_NAME: this.sourceTable.tableName,
           POWERTOOLS_SERVICE_NAME: 'events-aggregator-travel-digestion',
           POWERTOOLS_METRICS_NAMESPACE: 'EventsAggregator',
         },
@@ -194,7 +198,7 @@ export class EventsAggregatorStack extends cdk.Stack {
       kmsKeyArn: kmsArn,
     });
 
-    this.sourceSourceTable.grantReadWriteData(travelDigestionLambda);
+    this.sourceTable.grantReadWriteData(travelDigestionLambda);
     incomingEventsQueue.queue.grantSendMessages(travelDigestionLambda);
     incomingEventsQueue.deadLetterQueue.grantSendMessages(
       travelDigestionLambda,
@@ -360,6 +364,22 @@ export class EventsAggregatorStack extends cdk.Stack {
         });
       },
     );
+
+    const flexTravelReadRole = new iam.Role(this, 'FlexTravelReadRole', {
+      roleName: `${namePrefix}-flex-travel-read`,
+      description:
+        'Assumed by the FLEX travel sercice gateway to read travel sources',
+      assumedBy: new iam.AccountPrincipal(flexAccountId),
+      externalIds: [flexExternalId],
+      maxSessionDuration: cdk.Duration.hours(1),
+    });
+
+    this.sourceTable.grantReadData(flexTravelReadRole);
+    this.eventStoreTable.table.grantReadData(flexTravelReadRole);
+
+    new cdk.CfnOutput(this, 'FlexTravelReadRoleArn', {
+      value: flexTravelReadRole.roleArn,
+    });
   }
 
   private grantUnsAccess(fn: lambda.Function, uns: IUnsConfig): void {

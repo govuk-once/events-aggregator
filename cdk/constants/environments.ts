@@ -6,6 +6,13 @@ export enum GovUkOnceEnvironments {
   Prod = 'prod',
 }
 
+export enum GovUkOnceFullEnvironments {
+  Dev = 'development',
+  Test = 'testing',
+  Stag = 'staging',
+  Prod = 'production',
+}
+
 // define service metadata
 export const serviceMetadata = {
   serviceName: 'events-aggregator',
