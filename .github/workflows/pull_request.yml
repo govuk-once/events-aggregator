@@ -12,6 +12,7 @@ concurrency:
 
 env:
   USER: pr-${{ github.event.pull_request.number }}
+  ENVIRONMENT: pr-${{ github.event.pull_request.number }}
 
 jobs:
   ValidatePR:
