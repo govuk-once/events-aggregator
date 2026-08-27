@@ -10,6 +10,7 @@ import { Construct } from 'constructs';
 import { LambdaFactory } from '../cdk_constructs/LambdaFunctionFactory';
 import {
   getEnvironment,
+  getPullRequestNumber,
   getResourceNamePrefix,
   isEphemeralEnvironment,
 } from '../constants/environments';
@@ -90,6 +91,12 @@ export class EventsAggregatorStack extends cdk.Stack {
     cdk.Tags.of(this).add('Version', props.version);
     cdk.Tags.of(this).add('CostCenter', props.costCenter);
     cdk.Tags.of(this).add('Environment', props.environment);
+
+    const pullRequestNumber = getPullRequestNumber();
+    if (pullRequestNumber) {
+      cdk.Tags.of(this).add('Ephemeral', 'true');
+      cdk.Tags.of(this).add('PullRequest', pullRequestNumber);
+    }
 
     const localNamespace = `ea-${env}`;
     const params = [

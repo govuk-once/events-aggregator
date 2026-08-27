@@ -33,6 +33,14 @@ export const getEnvironment = (): string => {
   return env.replace(/[^a-zA-Z0-9-]/g, '');
 };
 
+const PULL_REQUEST_ENVIRONMENT = /^pr-(\d+)$/;
+
+export const isPullRequestEnvironment = (): boolean =>
+  PULL_REQUEST_ENVIRONMENT.test(getEnvironment());
+
+export const getPullRequestNumber = (): string | undefined =>
+  PULL_REQUEST_ENVIRONMENT.exec(getEnvironment())?.[1];
+
 // identify if is ephemeral environment
 export const isEphemeralEnvironment = (): boolean => {
   const environment = getEnvironment();

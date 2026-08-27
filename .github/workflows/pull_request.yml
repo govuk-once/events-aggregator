@@ -6,10 +6,21 @@ on:
     branches:
       - main
 
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env: 
+  USER: pr-${{ github.event.pull_request.number }}
+
 jobs:
   ValidatePR:
     name: Validate PR
     uses: ./.github/workflows/_validate_pr.yml
+
   QualityChecks:
     name: 🧪  Quality Checks
     needs: ValidatePR

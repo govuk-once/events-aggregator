@@ -8,6 +8,11 @@ on:
         type: string
         required: true
         default: 'dev'
+      github-environment:
+        description: 'Environment in github'
+        type: string
+        required: true
+        default: 'dev'
       aws_region:
         description: 'AWS region'
         type: string
