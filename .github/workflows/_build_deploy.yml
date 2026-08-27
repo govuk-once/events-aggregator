@@ -51,6 +51,7 @@ jobs:
     env:
       FLEX_ACCOUNT_ID: ${{ vars.FLEX_ACCOUNT_ID }}
       FLEX_EXTERNAL_ID: ${{ vars.FLEX_EXTERNAL_ID }}
+      ENVIRONMENT: pr-${{ github.event.pull_request.number }}
     permissions:
       contents: write
       pull-requests: write
