@@ -27,7 +27,7 @@ jobs:
     with:
       environment-name: development
       service-name: dynamotable
-      table-name: runner-dynamotable-sourceStore
+      table-name: development-dynamotable-sourceStore
     secrets:
       DEPLOYMENT_ROLE: ${{ secrets.DEV_DEPLOYMENT_ROLE }}
 
