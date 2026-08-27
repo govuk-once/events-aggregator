@@ -43,6 +43,9 @@ jobs:
     name: Build & Deploy
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
+    env:
+      FLEX_ACCOUNT_ID: ${{ secrets.FLEX_ACCOUNT_ID }}
+      FLEX_EXTERNAL_ID: ${{ secrets.FLEX_EXTERNAL_ID }}
     permissions:
       contents: write
       pull-requests: write
