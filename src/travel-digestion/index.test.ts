@@ -114,7 +114,7 @@ const metricsPublishSpy = vi
 const spainSource = {
   sourceID: 'src-spain',
   compositeKey: 'travel/spain',
-  URL: '/travel-advice/spain',
+  URL: 'https://www.gov.uk/api/content/travel-advice/spain',
   sourceEnabled: true,
 };
 
