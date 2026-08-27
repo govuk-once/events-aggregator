@@ -19,6 +19,7 @@ jobs:
     uses: ./.github/workflows/_build_deploy.yml
     with:
       environment: development
+      github-environment: development
 
   SeedDev:
     name: Seed dev data
