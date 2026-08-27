@@ -92,7 +92,7 @@ jobs:
         continue-on-error: true
         shell: bash
         env:
-          Environment: ${{ inputs.environment-name }}
+          Environment: ${{ inputs.github-environment }}
           SERVICE_NAME: ${{ inputs.service-name }}
           SOURCE_TABLE_NAME: ${{ inputs.table-name }}
           AWS_REGION: ${{ inputs.aws-region }}
