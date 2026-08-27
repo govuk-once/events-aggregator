@@ -11,7 +11,7 @@ on:
       github-environment:
         description: 'Environment in github'
         type: string
-        required: true
+        required: false
         default: 'dev'
       aws_region:
         description: 'AWS region'
