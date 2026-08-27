@@ -1,32 +1,40 @@
 import { Source } from '@/types/source';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, BatchGetCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
 
 const client = new DynamoDBClient({ region: 'eu-west-2' });
 const documentClient = DynamoDBDocumentClient.from(client, {
   marshallOptions: { removeUndefinedValues: true },
 });
 
+const COMPOSITE_INDEX = 'composite-query';
+
+const getEventSourceByCompositeKey = async (
+  compositeKey: string,
+  tableName: string,
+): Promise<Source[]> => {
+  const result = await documentClient.send(
+    new QueryCommand({
+      TableName: tableName,
+      IndexName: COMPOSITE_INDEX,
+      KeyConditionExpression: '#compositeKey = :compositeKey',
+      ExpressionAttributeNames: { '#compositeKey': 'compositeKey' },
+      ExpressionAttributeValues: { ':compositeKey': compositeKey },
+    }),
+  );
+
+  return (result.Items ?? []) as Source[];
+};
+
 export const getEventSourceByCompositeKeys = async (
   keys: string[],
   tableName: string,
 ): Promise<Source[]> => {
-  const request = {
-    Keys: keys.map((key) => ({
-      compositeKey: key,
-    })),
-    ConsistentRead: true,
-  };
-
-  const result = await documentClient.send(
-    new BatchGetCommand({ RequestItems: { [tableName]: request } }),
+  const results = await Promise.all(
+    [...new Set(keys)].map((key) =>
+      getEventSourceByCompositeKey(key, tableName),
+    ),
   );
 
-  const sources = [];
-  for (const item of result.Responses?.[tableName] ?? []) {
-    const source = item as Source;
-    sources.push(source);
-  }
-
-  return sources;
+  return results.flat();
 };

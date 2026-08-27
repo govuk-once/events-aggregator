@@ -36,9 +36,18 @@ const scheduleContext = (
 type ScheduleContext = ReturnType<typeof scheduleContext>;
 
 /** `/foreign-travel-advice/myanmar` -> `travel/myanmar`. */
-const compositeKeyFromLink = (link: string): string =>
-  `travel/${link.split('/').at(-1)}`;
+const TRAVEL_ADVICE_PREFIX = 'foreign-travel-advice';
 
+/** `/foreign-travel-advice/myanmar?x=1#y` -> `travel/myanmar`; null if not a country page. */
+const compositeKeyFromLink = (link: string): string | null => {
+  const path = link.split(/[?#]/, 1)[0].replace(/\/+$/, '');
+  const segments = path.split('/').filter(Boolean);
+  const index = segments.indexOf(TRAVEL_ADVICE_PREFIX);
+
+  const slug = index === -1 ? undefined : segments[index + 1];
+
+  return slug ? `travel/${slug}` : null;
+};
 /**
  * Published one at a time on purpose: the queue is the slow path and a burst
  * of parallel sends buys nothing here.
@@ -116,9 +125,18 @@ export const handler = async (event: TravelAlertScheduleEvent) => {
       return false;
     }
 
-    const compositeKeys = travelChanges.results.map(({ link }) =>
-      compositeKeyFromLink(link),
-    );
+    const compositeKeys = [
+      ...new Set(
+        travelChanges.results
+          .map(({ link }) => compositeKeyFromLink(link))
+          .filter((key): key is string => key !== null),
+      ),
+    ];
+
+    if (compositeKeys.length < 1) {
+      logger.info({ message: 'No usable composite keys derived', ...context });
+      return false;
+    }
 
     const sources = await segment(tracer, 'GetEventSources', async () =>
       getEventSourceByCompositeKeys(

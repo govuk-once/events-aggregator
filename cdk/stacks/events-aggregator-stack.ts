@@ -176,7 +176,7 @@ export class EventsAggregatorStack extends cdk.Stack {
         environment: {
           SSM_PREFIX: this.sharedNamespace,
           UNS_API_KEY_ARN: unsApiKeySecret.secretArn,
-          INCOMING_EVENTS_QUEUE_URL: incomingEventsQueue.queue.queueName,
+          INCOMING_EVENTS_QUEUE_URL: incomingEventsQueue.queue.queueUrl,
           SOURCE_TABLE_NAME: this.sourceSourceTable.tableName,
           POWERTOOLS_SERVICE_NAME: 'events-aggregator-travel-digestion',
           POWERTOOLS_METRICS_NAMESPACE: 'EventsAggregator',

@@ -13,7 +13,11 @@ import { Logger } from '@aws-lambda-powertools/logger';
 
 import nock from 'nock';
 import { mockClient } from 'aws-sdk-client-mock';
-import { BatchGetCommand, DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import {
+  QueryCommand,
+  type QueryCommandInput,
+  DynamoDBDocumentClient,
+} from '@aws-sdk/lib-dynamodb';
 import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
 
 import { MetricUnit } from '@aws-lambda-powertools/metrics';
@@ -25,9 +29,16 @@ vi.stubEnv('UNS_KEY_ARN', 'arn:key');
 vi.stubEnv('UNS_API_KEY_ARN', 'api_key');
 vi.stubEnv('SSM_PREFIX', 'prefix');
 vi.stubEnv('SOURCE_TABLE_NAME', 'tablename');
+vi.stubEnv(
+  'INCOMING_EVENTS_QUEUE_URL',
+  'https://sqs.eu-west-2.amazonaws.com/000000000000/incoming-events.fifo',
+);
 
 const dynamoMock = mockClient(DynamoDBDocumentClient);
 const sqsMock = mockClient(SQSClient);
+
+type MockCommand = Parameters<typeof dynamoMock.on>[0];
+const asCommand = (command: unknown) => command as MockCommand;
 
 const { sendMock } = vi.hoisted(() => ({
   sendMock: vi.fn(),
@@ -101,6 +112,7 @@ const metricsPublishSpy = vi
   .mockImplementation(() => metrics);
 
 const spainSource = {
+  sourceID: 'src-spain',
   compositeKey: 'travel/spain',
   URL: '/travel-advice/spain',
   sourceEnabled: true,
@@ -160,7 +172,7 @@ describe('Travel Alerts Schedule', () => {
         {
           results: [
             {
-              link: '/travel-advice/spain',
+              link: '/foreign-travel-advice/spain',
             },
           ],
         },
@@ -189,9 +201,7 @@ describe('Travel Alerts Schedule', () => {
         { content_type: 'application/json' },
       );
 
-    dynamoMock.on(BatchGetCommand).resolves({
-      Responses: { tablename: [spainSource] },
-    });
+    dynamoMock.on(asCommand(QueryCommand)).resolves({ Items: [spainSource] });
 
     sqsMock.on(SendMessageCommand).resolves({});
 
@@ -201,6 +211,38 @@ describe('Travel Alerts Schedule', () => {
     });
 
     expect(response).toBe(true);
+
+    const queryCalls = dynamoMock.commandCalls(asCommand(QueryCommand));
+    expect(queryCalls).toHaveLength(1);
+
+    const queryInput = queryCalls[0]?.args[0].input as QueryCommandInput;
+    expect(queryInput).toMatchObject({
+      TableName: 'tablename',
+      IndexName: 'composite-query',
+      KeyConditionExpression: '#compositeKey = :compositeKey',
+      ExpressionAttributeNames: { '#compositeKey': 'compositeKey' },
+      ExpressionAttributeValues: { ':compositeKey': 'travel/spain' },
+    });
+    expect(queryInput).not.toHaveProperty('ConsistentRead');
+
+    const sendCalls = sqsMock.commandCalls(SendMessageCommand);
+    expect(sendCalls).toHaveLength(1);
+
+    const sendInput = sendCalls[0]?.args[0].input;
+    expect(sendInput?.MessageGroupId).toBe('travel/spain');
+    expect(sendInput?.QueueUrl).toBe(
+      'https://sqs.eu-west-2.amazonaws.com/000000000000/incoming-events.fifo',
+    );
+
+    const body = JSON.parse(sendInput?.MessageBody as string);
+    expect(body).toMatchObject({
+      namespace: 'travel',
+      group: 'spain',
+      eventNote: 'A change has happened',
+      eventTimestamp: '2026-07-21T10:10:00Z',
+    });
+
+    expect(body.eventID).toMatch(/^[0-9a-f]{64}$/);
 
     expect(metricsAddSpy).toHaveBeenCalledWith(
       'TravelAdviceResultsRetrieved',
@@ -237,6 +279,47 @@ describe('Travel Alerts Schedule', () => {
 
     scope.done();
     contentScope.done();
+  });
+
+  it('should produce a stable eventID for the same change across schedules', async () => {
+    const stubRun = (schedule: 'daily' | 'weekly') => {
+      nock('https://www.gov.uk')
+        .get('/api/search.json')
+        .query(true)
+        .reply(200, { results: [{ link: '/foreign-travel-advice/spain' }] });
+
+      nock('https://www.gov.uk')
+        .get('/api/content/travel-advice/spain')
+        .query(true)
+        .reply(200, {
+          details: {
+            change_history: [
+              {
+                note: 'A change has happened',
+                public_timestamp: '2026-07-21T10:10:00Z',
+              },
+            ],
+            country: { name: 'Spain', slug: 'spain' },
+          },
+        });
+
+      return handler({ triggeredAt: '2026-07-22', schedule });
+    };
+
+    dynamoMock.on(asCommand(QueryCommand)).resolves({ Items: [spainSource] });
+    sqsMock.on(SendMessageCommand).resolves({});
+
+    await stubRun('daily');
+    await stubRun('weekly');
+
+    const ids = sqsMock
+      .commandCalls(SendMessageCommand)
+      .map(
+        ({ args }) => JSON.parse(args[0].input.MessageBody as string).eventID,
+      );
+
+    expect(ids).toHaveLength(2);
+    expect(ids[0]).toBe(ids[1]);
   });
 
   it('should return false and log when the search API returns no results', async () => {
@@ -285,7 +368,7 @@ describe('Travel Alerts Schedule', () => {
   });
 
   it('should return false and log when no sources are found in the database', async () => {
-    dynamoMock.on(BatchGetCommand).resolves({ Responses: { tablename: [] } });
+    dynamoMock.on(asCommand(QueryCommand)).resolves({ Items: [] });
 
     const scope = nock('https://www.gov.uk')
       .get('/api/search.json')
@@ -295,7 +378,7 @@ describe('Travel Alerts Schedule', () => {
         {
           results: [
             {
-              link: '/travel-advice/spain',
+              link: '/foreign-travel-advice/spain',
             },
           ],
         },
@@ -342,16 +425,69 @@ describe('Travel Alerts Schedule', () => {
     scope.done();
   });
 
+  // ADDED: Query returns Items undefined when nothing matches on some paths —
+  // the service must not blow up on it.
+  it('should treat an undefined Items array as no sources', async () => {
+    dynamoMock.on(asCommand(QueryCommand)).resolves({});
+
+    const scope = nock('https://www.gov.uk')
+      .get('/api/search.json')
+      .query(true)
+      .reply(200, { results: [{ link: '/foreign-travel-advice/spain' }] });
+
+    const result = await handler({
+      triggeredAt: '2027-07-20',
+      schedule: 'daily',
+    });
+
+    expect(result).toBe(false);
+    expect(metricsAddSpy).toHaveBeenCalledWith(
+      'EventSourcesRetrieved',
+      MetricUnit.Count,
+      0,
+    );
+
+    scope.done();
+  });
+
+  it('should issue one query per distinct composite key', async () => {
+    dynamoMock.on(asCommand(QueryCommand)).resolves({ Items: [] });
+
+    const scope = nock('https://www.gov.uk')
+      .get('/api/search.json')
+      .query(true)
+      .reply(200, {
+        results: [
+          { link: '/foreign-travel-advice/spain' },
+          { link: '/foreign-travel-advice/france' },
+          { link: '/foreign-travel-advice/spain' },
+        ],
+      });
+
+    await handler({ triggeredAt: '2027-07-20', schedule: 'daily' });
+
+    const keys = dynamoMock
+      .commandCalls(asCommand(QueryCommand))
+      .map(
+        ({ args }) =>
+          (args[0].input as QueryCommandInput).ExpressionAttributeValues?.[
+            ':compositeKey'
+          ],
+      );
+
+    expect(keys.sort()).toEqual(['travel/france', 'travel/spain']);
+
+    scope.done();
+  });
+
   it('should log and skip a country when the content API returns no changes', async () => {
-    dynamoMock
-      .on(BatchGetCommand)
-      .resolves({ Responses: { tablename: [spainSource] } });
+    dynamoMock.on(asCommand(QueryCommand)).resolves({ Items: [spainSource] });
     sqsMock.on(SendMessageCommand).resolves({ MessageId: 'msg-1' });
 
     const scope = nock('https://www.gov.uk')
       .get('/api/search.json')
       .query(true)
-      .reply(200, { results: [{ link: '/travel-advice/spain' }] });
+      .reply(200, { results: [{ link: '/foreign-travel-advice/spain' }] });
 
     const contentScope = nock('https://www.gov.uk')
       .get('/api/content/travel-advice/spain')
@@ -443,9 +579,7 @@ describe('Travel Alerts Schedule', () => {
   });
 
   it('should throw and log when the content API returns an error', async () => {
-    dynamoMock
-      .on(BatchGetCommand)
-      .resolves({ Responses: { tablename: [spainSource] } });
+    dynamoMock.on(asCommand(QueryCommand)).resolves({ Items: [spainSource] });
 
     const scope = nock('https://www.gov.uk')
       .get('/api/search.json')
@@ -455,7 +589,7 @@ describe('Travel Alerts Schedule', () => {
         {
           results: [
             {
-              link: '/travel-advice/spain',
+              link: '/foreign-travel-advice/spain',
             },
           ],
         },
@@ -505,14 +639,14 @@ describe('Travel Alerts Schedule', () => {
   });
 
   it('should skip a disabled source without queuing events', async () => {
-    dynamoMock.on(BatchGetCommand).resolves({
-      Responses: { tablename: [{ ...spainSource, sourceEnabled: false }] },
+    dynamoMock.on(asCommand(QueryCommand)).resolves({
+      Items: [{ ...spainSource, sourceEnabled: false }],
     });
 
     const scope = nock('https://www.gov.uk')
       .get('/api/search.json')
       .query(true)
-      .reply(200, { results: [{ link: '/travel-advice/spain' }] });
+      .reply(200, { results: [{ link: '/foreign-travel-advice/spain' }] });
 
     const result = await handler({
       triggeredAt: '2026-07-20',
