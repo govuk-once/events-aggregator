@@ -47,11 +47,11 @@ jobs:
   deploy:
     name: Build & Deploy
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
+    environment: ${{ inputs.github-environment }}
     env:
       FLEX_ACCOUNT_ID: ${{ vars.FLEX_ACCOUNT_ID }}
       FLEX_EXTERNAL_ID: ${{ vars.FLEX_EXTERNAL_ID }}
-      ENVIRONMENT: pr-${{ github.event.pull_request.number }}
+      ENVIRONMENT: ${{ inputs.environment }}
     permissions:
       contents: write
       pull-requests: write
