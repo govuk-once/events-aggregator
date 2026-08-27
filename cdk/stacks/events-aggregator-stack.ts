@@ -59,9 +59,6 @@ const constants = {
   TABLE_NAME_VARIABLE: 'eventsStore',
 };
 
-const flexDevAccountId = '308036881389';
-const flexDevExternalId = 'flex-dev';
-
 export class EventsAggregatorStack extends cdk.Stack {
   public readonly sourceTable: ITable;
   public readonly eventStoreTable: ITableWithStream;
