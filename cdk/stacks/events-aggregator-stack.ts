@@ -48,9 +48,6 @@ const constants = {
   TABLE_NAME_VARIABLE: 'eventsStore',
 };
 
-const flexDevAccountId = '308036881389';
-const flexDevExternalId = 'flex-dev';
-
 export class EventsAggregatorStack extends cdk.Stack {
   public readonly sourceSourceTable: ITable;
   public readonly eventStoreTable: ITableWithStream;
@@ -68,8 +65,13 @@ export class EventsAggregatorStack extends cdk.Stack {
     super(scope, id, props);
 
     const env = getEnvironment();
-    const flexAccountId = process.env.FLEX_ACCOUNT_ID || flexDevAccountId;
-    const flexExternalId = process.env.FLEX_EXTERNAL_ID || flexDevExternalId;
+    const flexAccountId = process.env.FLEX_ACCOUNT_ID;
+    const flexExternalId = process.env.FLEX_EXTERNAL_ID;
+
+    if (!flexAccountId || !flexExternalId) {
+      throw new Error('Flex Account id and external id not set');
+    }
+
     const namePrefix = getResourceNamePrefix();
     const __dirname = dirname(fileURLToPath(import.meta.url));
 
