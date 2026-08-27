@@ -138,7 +138,7 @@ export function parseConfig(argv: string[] = process.argv.slice(2)): Config {
   const { values } = parseArgs({
     args: argv,
     options: {
-      table: { type: 'string', default: process.env.TABLE_NAME },
+      table: { type: 'string', default: process.env.SOURCE_TABLE_NAME },
       service: { type: 'string', default: process.env.SERVICE_NAME },
       'table-name': {
         type: 'string',
