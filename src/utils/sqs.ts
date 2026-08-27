@@ -6,7 +6,7 @@ import {
   type SendMessageCommandOutput,
 } from '@aws-sdk/client-sqs';
 import { Logger } from '@aws-lambda-powertools/logger';
-import { v4 as uuidv4 } from 'uuid';
+import { createHash } from 'node:crypto';
 
 const logger = new Logger();
 const sqs = new SQSClient({ region: 'eu-west-2' });
@@ -15,14 +15,20 @@ export const travelEventToIncomingEvent = (
   history: ChangeHistory,
   details: CountryDetails,
 ): IncomingEvent => {
-  const eventID = uuidv4();
+  const namespace = 'travel';
+  const group = details.country.slug;
+
+  const eventID = createHash('sha256')
+    .update(
+      [namespace, group, history.public_timestamp, history.note].join('|'),
+    )
+    .digest('hex');
+
   return {
     eventID,
     eventTimestamp: history.public_timestamp,
-    // Group details
-    namespace: 'travel',
-    group: details.country.slug,
-    // Event details - in the future if other services are integrated into the event aggregator, each row here could have it's own custom set of properties
+    namespace,
+    group,
     eventNote: history.note,
   };
 };
@@ -34,8 +40,8 @@ export const sendIncomingEventToQueue = async (
   try {
     const params = {
       QueueUrl: queueUrl,
-      MessageBody: JSON.stringify(event), // Events are typically sent as JSON strings
-      MessageGroupId: '1',
+      MessageBody: JSON.stringify(event),
+      MessageGroupId: `${event.namespace}/${event.group}`,
     };
 
     const command = new SendMessageCommand(params);
@@ -47,6 +53,6 @@ export const sendIncomingEventToQueue = async (
     return response;
   } catch (error) {
     logger.error('Error sending event to SQS:', { error });
-    throw new Error('Error sending event to SQS');
+    throw new Error('Error sending event to SQS', { cause: error });
   }
 };
