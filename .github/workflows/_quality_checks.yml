@@ -155,7 +155,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: AuthandCacheModules
     timeout-minutes: 10
-    environment: 'development',
+    environment: 'development'
     env: 
       FLEX_ACCOUNT_ID: ${{ vars.FLEX_ACCOUNT_ID }}
       FLEX_EXTERNAL_ID: ${{ vars.FLEX_EXTERNAL_ID }}
