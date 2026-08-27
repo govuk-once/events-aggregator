@@ -8,7 +8,7 @@ export enum GovUkOnceEnvironments {
 
 // define service metadata
 export const serviceMetadata = {
-  serviceName: 'events-aggregator-stack',
+  serviceName: 'events-aggregator',
   teamName: 'events-aggregator-team',
   repositoryUrl: 'https://github.com/govuk-once/events-aggregator',
   version: '0.1.0',
