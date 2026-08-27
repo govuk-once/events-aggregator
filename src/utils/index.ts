@@ -50,7 +50,7 @@ export const getTravelChangesSince = async (
 export const getCountryChanges = async (
   url: string,
 ): Promise<CountryResponse> => {
-  const response = await fetch(CONTENT_API + url);
+  const response = await fetch(url);
 
   if (!response.ok) {
     throw new Error(`Content api returned a ${response.status}`);
