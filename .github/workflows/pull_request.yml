@@ -13,7 +13,7 @@ concurrency:
 permissions:
   contents: read
 
-env: 
+env:
   USER: pr-${{ github.event.pull_request.number }}
 
 jobs:
