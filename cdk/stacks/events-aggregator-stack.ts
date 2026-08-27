@@ -49,7 +49,7 @@ const constants = {
 };
 
 export class EventsAggregatorStack extends cdk.Stack {
-  public readonly sourceSourceTable: ITable;
+  public readonly sourceTable: ITable;
   public readonly eventStoreTable: ITableWithStream;
   public readonly sharedNamespace: string = `ea-runner`;
 
@@ -106,27 +106,24 @@ export class EventsAggregatorStack extends cdk.Stack {
         : cdk.RemovalPolicy.RETAIN,
     });
 
-    this.sourceSourceTable = this.dynamoFactory.createTable(
-      'EventSourceTable',
-      {
-        name: constants.SOURCE_STORE_TABLE_NAME_VARIABLE,
-        partitionKey: 'sourceID',
-        sortKey: 'compositeKey',
-        pointInTimeRecovery: false,
-        globalSecondaryIndexes: [
-          {
-            indexName: 'composite-query',
-            partitionKeyName: 'compositeKey',
-            partitionKeyType: AttributeType.STRING,
-            sortKeyName: 'lastUpdated',
-            sortKeyType: AttributeType.STRING,
-          },
-        ],
-        removalPolicy: isEphemeralEnvironment()
-          ? cdk.RemovalPolicy.DESTROY
-          : cdk.RemovalPolicy.RETAIN,
-      },
-    );
+    this.sourceTable = this.dynamoFactory.createTable('EventSourceTable', {
+      name: constants.SOURCE_STORE_TABLE_NAME_VARIABLE,
+      partitionKey: 'sourceID',
+      sortKey: 'compositeKey',
+      pointInTimeRecovery: false,
+      globalSecondaryIndexes: [
+        {
+          indexName: 'composite-query',
+          partitionKeyName: 'compositeKey',
+          partitionKeyType: AttributeType.STRING,
+          sortKeyName: 'lastUpdated',
+          sortKeyType: AttributeType.STRING,
+        },
+      ],
+      removalPolicy: isEphemeralEnvironment()
+        ? cdk.RemovalPolicy.DESTROY
+        : cdk.RemovalPolicy.RETAIN,
+    });
 
     const incomingEventsQueue = this.sqsFactory.createQueueWithDeadLetter(
       'InEventsQueue',
@@ -184,7 +181,7 @@ export class EventsAggregatorStack extends cdk.Stack {
           SSM_PREFIX: this.sharedNamespace,
           UNS_API_KEY_ARN: unsApiKeySecret.secretArn,
           INCOMING_EVENTS_QUEUE_URL: incomingEventsQueue.queue.queueUrl,
-          SOURCE_TABLE_NAME: this.sourceSourceTable.tableName,
+          SOURCE_TABLE_NAME: this.sourceTable.tableName,
           POWERTOOLS_SERVICE_NAME: 'events-aggregator-travel-digestion',
           POWERTOOLS_METRICS_NAMESPACE: 'EventsAggregator',
         },
@@ -201,7 +198,7 @@ export class EventsAggregatorStack extends cdk.Stack {
       kmsKeyArn: kmsArn,
     });
 
-    this.sourceSourceTable.grantReadWriteData(travelDigestionLambda);
+    this.sourceTable.grantReadWriteData(travelDigestionLambda);
     incomingEventsQueue.queue.grantSendMessages(travelDigestionLambda);
     incomingEventsQueue.deadLetterQueue.grantSendMessages(
       travelDigestionLambda,
@@ -377,7 +374,8 @@ export class EventsAggregatorStack extends cdk.Stack {
       maxSessionDuration: cdk.Duration.hours(1),
     });
 
-    this.sourceSourceTable.grantReadData(flexTravelReadRole);
+    this.sourceTable.grantReadData(flexTravelReadRole);
+    this.eventStoreTable.table.grantReadData(flexTravelReadRole);
 
     new cdk.CfnOutput(this, 'FlexTravelReadRoleArn', {
       value: flexTravelReadRole.roleArn,
