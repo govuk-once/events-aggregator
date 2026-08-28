@@ -1,7 +1,7 @@
 {
   "name": "govuk-events-aggregator",
   "description": "Events aggregator for Push Notifications",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "type": "module",
   "bin": {
     "events-aggregator": "cdk/events-aggregator.ts"
@@ -35,12 +35,14 @@
     "deploy:test": "cdk deploy --context environment=test --all --require-approval never",
     "deploy:dev": "cdk deploy --context environment=dev --all --require-approval never",
     "deploy:stag": "cdk deploy --context environment=stag --all --require-approval never",
-    "deploy:prod": "cdk deploy --context environment=prod --all --require-approval never"
+    "deploy:prod": "cdk deploy --context environment=prod --all --require-approval never",
+    "semantic:release": "semantic-release"
   },
   "devDependencies": {
     "@cucumber/cucumber": "^12.4.0",
     "@cucumber/pretty-formatter": "^2.4.1",
     "@eslint/js": "^9.39.1",
+    "@semantic-release/exec": "^7.1.0",
     "@types/aws-lambda": "^8.10.162",
     "@types/chai": "^5.2.3",
     "@types/node": "^24.10.1",
@@ -58,6 +60,7 @@
     "globals": "^16.5.0",
     "jiti": "^2.6.1",
     "prettier": "^3.7.4",
+    "semantic-release": "^25.0.9",
     "ts-node": "^10.9.2",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.48.1",
