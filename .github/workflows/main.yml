@@ -15,11 +15,12 @@ jobs:
   DeployToDev:
     name: 🛠️  Deploy To Dev Env
     needs: QualityChecks
-    secrets: inherit
     uses: ./.github/workflows/_build_deploy.yml
     with:
       environment: development
       github-environment: development
+    secrets:
+      DEPLOYMENT_ROLE: ${{ secrets.DEV_DEPLOYMENT_ROLE }}
 
   SeedDev:
     name: Seed dev data
@@ -35,7 +36,6 @@ jobs:
   DeployToStaging:
     name: 🛠️  Deploy To Staging Env
     needs: DeployToDev
-    secrets: inherit
     uses: ./.github/workflows/_build_deploy.yaml
     with:
       environment: staging
