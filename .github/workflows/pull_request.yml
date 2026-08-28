@@ -6,10 +6,19 @@ on:
     branches:
       - main
 
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  USER: pr-${{ github.event.pull_request.number }}
+  ENVIRONMENT: pr-${{ github.event.pull_request.number }}
+
 jobs:
   ValidatePR:
     name: Validate PR
     uses: ./.github/workflows/_validate_pr.yml
+
   QualityChecks:
     name: 🧪  Quality Checks
     needs: ValidatePR
@@ -17,21 +26,23 @@ jobs:
     secrets: inherit
     uses: ./.github/workflows/_quality_checks.yml
 
-  DeployToDev:
-    name: 🛠️ Deploy To Dev Env
+  DeployToEphemeral:
+    name: 🛠️ Deploy To Ephemral Env
     needs: QualityChecks
     secrets: inherit
     uses: ./.github/workflows/_build_deploy.yml
     with:
-      environment: development
+      environment: pr-${{ github.event.pull_request.number }}
+      github-environment: development
 
-  SeedDev:
-    name: Seed dev data
-    needs: DeployToDev
+  SeedEphemeral:
+    name: Seed Ephemeral data
+    needs: DeployToEphemeral
     uses: ./.github/workflows/_seed_data.yml
     with:
-      environment-name: development
+      github-environment: development
+      environment-name: pr-${{ github.event.pull_request.number }}
       service-name: dynamotable
-      table-name: runner-dynamotable-sourceStore
+      table-name: pr-${{ github.event.pull_request.number }}-dynamotable-sourceStore
     secrets:
       DEPLOYMENT_ROLE: ${{ secrets.DEV_DEPLOYMENT_ROLE }}

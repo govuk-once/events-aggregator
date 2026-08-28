@@ -8,6 +8,11 @@ on:
         type: string
         required: true
         default: 'dev'
+      github-environment:
+        description: 'Environment in github'
+        type: string
+        required: false
+        default: 'dev'
       aws_region:
         description: 'AWS region'
         type: string
@@ -42,10 +47,11 @@ jobs:
   deploy:
     name: Build & Deploy
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
+    environment: ${{ inputs.github-environment }}
     env:
       FLEX_ACCOUNT_ID: ${{ vars.FLEX_ACCOUNT_ID }}
       FLEX_EXTERNAL_ID: ${{ vars.FLEX_EXTERNAL_ID }}
+      ENVIRONMENT: ${{ inputs.environment }}
     permissions:
       contents: write
       pull-requests: write
