@@ -13,6 +13,7 @@ import {
   getPullRequestNumber,
   getResourceNamePrefix,
   isEphemeralEnvironment,
+  isPullRequestEnvironment,
 } from '../constants/environments';
 import {
   EventBridgeScheduleFactory,
@@ -383,6 +384,69 @@ export class EventsAggregatorStack extends cdk.Stack {
 
     this.sourceTable.grantReadData(flexTravelReadRole);
     this.eventStoreTable.table.grantReadData(flexTravelReadRole);
+
+    const flexConfigKey = new kms.Key(this, 'FlexConfigEncryptionKey', {
+      alias: `${namePrefix}-flex-config-key`,
+      description: 'Encrypts the FLEX travel connection secret',
+      enableKeyRotation: true,
+      removalPolicy: isEphemeralEnvironment()
+        ? cdk.RemovalPolicy.DESTROY
+        : cdk.RemovalPolicy.RETAIN,
+    });
+
+    flexConfigKey.addToResourcePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        principals: [new iam.AccountPrincipal(flexAccountId)],
+        actions: ['kms:Decrypt', 'kms:DescribeKey'],
+        resources: ['*'],
+        conditions: {
+          StringEquals: {
+            'kms:ViaService': `secretsmanager.${this.region}.amazon.com`,
+          },
+        },
+      }),
+    );
+
+    const flexTravelConfigSecret = new Secret(this, 'FlexTravelConfigSecret', {
+      ...(isPullRequestEnvironment()
+        ? {}
+        : { secretName: `${namePrefix}/flex-travel-config` }),
+      description:
+        'Connection details the FLEX account uses to read travel sources',
+      encryptionKey: flexConfigKey,
+      secretObjectValue: {
+        externalId: cdk.SecretValue.unsafePlainText(flexExternalId),
+        region: cdk.SecretValue.unsafePlainText(this.region),
+        roleArn: cdk.SecretValue.unsafePlainText(flexTravelReadRole.roleArn),
+        sourcesTableName: cdk.SecretValue.unsafePlainText(
+          this.sourceTable.tableName,
+        ),
+        eventStoreTableName: cdk.SecretValue.unsafePlainText(
+          this.eventStoreTable.table.tableName,
+        ),
+      },
+      removalPolicy: isEphemeralEnvironment()
+        ? cdk.RemovalPolicy.DESTROY
+        : cdk.RemovalPolicy.RETAIN,
+    });
+
+    flexTravelConfigSecret.addToResourcePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        principals: [new iam.AccountPrincipal(flexAccountId)],
+        actions: [
+          'secretsmanager:GetSecretValue',
+          'secretsmanager:DescribeSecret',
+        ],
+        resources: ['*'],
+      }),
+    );
+
+    new cdk.CfnOutput(this, 'FlexTravelConfigSecretArn', {
+      value: flexTravelConfigSecret.secretArn,
+      description: 'Secret the FLEX account reads to connect to this account',
+    });
 
     new cdk.CfnOutput(this, 'FlexTravelReadRoleArn', {
       value: flexTravelReadRole.roleArn,
