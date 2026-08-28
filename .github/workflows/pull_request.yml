@@ -29,11 +29,12 @@ jobs:
   DeployToEphemeral:
     name: 🛠️ Deploy To Ephemral Env
     needs: QualityChecks
-    secrets: inherit
     uses: ./.github/workflows/_build_deploy.yml
     with:
       environment: pr-${{ github.event.pull_request.number }}
       github-environment: development
+    secrets:
+      DEPLOYMENT_ROLE: ${{ secrets.DEV_DEPLOYMENT_ROLE }}
 
   SeedEphemeral:
     name: Seed Ephemeral data
