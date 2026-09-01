@@ -105,10 +105,33 @@ export class EventsAggregatorStack extends cdk.Stack {
 
     const keySecret = Secret.fromSecretCompleteArn(this, 'ClientKey', key);
 
+    const dataKey = new kms.Key(this, 'DataEncryptionKey', {
+      alias: `${namePrefix}-data-key`,
+      enableKeyRotation: true,
+      removalPolicy: isEphemeralEnvironment()
+        ? cdk.RemovalPolicy.DESTROY
+        : cdk.RemovalPolicy.RETAIN,
+    });
+
+    dataKey.addToResourcePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        principals: [new iam.AccountPrincipal(flexAccountId)],
+        actions: ['kms:Decrypt', 'kms:DescribeKey'],
+        resources: ['*'],
+        conditions: {
+          StringEquals: {
+            'kms:ViaService': `dynamodb.${this.region}.amazonaws.com`,
+          },
+        },
+      }),
+    );
+
     const unsApiKeySecret = new Secret(this, 'UnsApiKeySecret', {
       secretName: `${localNamespace}/uns-api-key`,
       description: 'UNS API key',
-      secretStringValue: cdk.SecretValue.unsafePlainText('PLACEHOLDER'),
+      generateSecretString: { excludePunctuation: true },
+      encryptionKey: dataKey,
       removalPolicy: isEphemeralEnvironment()
         ? cdk.RemovalPolicy.DESTROY
         : cdk.RemovalPolicy.RETAIN,
@@ -118,7 +141,8 @@ export class EventsAggregatorStack extends cdk.Stack {
       name: constants.SOURCE_STORE_TABLE_NAME_VARIABLE,
       partitionKey: 'sourceID',
       sortKey: 'compositeKey',
-      pointInTimeRecovery: false,
+      pointInTimeRecovery: true,
+      key: dataKey,
       globalSecondaryIndexes: [
         {
           indexName: 'composite-query',
@@ -137,6 +161,7 @@ export class EventsAggregatorStack extends cdk.Stack {
       'InEventsQueue',
       {
         name: 'incoming-events',
+        key: dataKey,
         fifo: true,
         contentBasedDeduplication: true,
         visibilityTimeout: cdk.Duration.seconds(60),
@@ -256,7 +281,8 @@ export class EventsAggregatorStack extends cdk.Stack {
             sortKeyType: AttributeType.STRING,
           },
         ],
-        pointInTimeRecovery: false,
+        pointInTimeRecovery: true,
+        key: dataKey,
         removalPolicy: isEphemeralEnvironment()
           ? cdk.RemovalPolicy.DESTROY
           : cdk.RemovalPolicy.RETAIN,

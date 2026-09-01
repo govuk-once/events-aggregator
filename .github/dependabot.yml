@@ -1,0 +1,41 @@
+version: 2
+
+updates:
+  # Enables version updates for pnpm
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    labels:
+      - 'npm dependency updates'
+    commit-message:
+      prefix: 'fix'
+      include: 'scope'
+    cooldown:
+      default-days: 7
+    groups:
+      dependencies:
+        patterns:
+          - '*'
+        update-types:
+          - 'patch'
+          - 'minor'
+
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    labels:
+      - 'github actions updates'
+    commit-message:
+      prefix: 'fix'
+      include: 'scope'
+    cooldown:
+      default-days: 7
+    groups:
+      dependencies:
+        patterns:
+          - '*'
+        update-types:
+          - 'patch'
+          - 'minor'
