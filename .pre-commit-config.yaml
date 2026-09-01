@@ -61,16 +61,16 @@ repos:
         entry: pnpm run test:unit
         pass_filenames: false
         stages: [pre-commit]
-      - id: bdd-tests
-        name: bdd-tests
+      - id: builds
+        name: builds
         language: system
-        entry: pnpm run test:bdd
+        entry: pnpm run build
         pass_filenames: false
         stages: [pre-commit]
       - id: cdk-synth
         name: cdk-synth
         language: system
-        entry: pnpm run cdk synth
+        entry: bash -c 'FLEX_ACCOUNT_ID="000000000" FLEX_EXTERNAL_ID="000000000" pnpm run cdk synth'
         pass_filenames: false
         stages: [pre-commit]
       - id: checkov

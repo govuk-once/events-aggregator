@@ -23,7 +23,7 @@ jobs:
     name: 🧪  Quality Checks
     needs: ValidatePR
     # needs: GetDependencies
-    secrets: inherit
+    secrets: inherit # pragma: allowlist secret
     uses: ./.github/workflows/_quality_checks.yml
 
   DeployToEphemeral:
