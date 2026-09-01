@@ -53,7 +53,6 @@ jobs:
       - name: Version
         run: echo "The next version is ${{ steps.release.outputs.semVer }}"
 
-
   DeployToDev:
     name: 🛠️  Deploy To Dev Env
     needs: Release
