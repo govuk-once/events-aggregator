@@ -217,6 +217,12 @@ jobs:
           config_file: .checkov.yaml
           baseline: .checkov.baseline
 
+      - name: ⚙️ Upload Checkov SARIF file
+        uses: github/codeql-action/upload-sarif@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
+        if: success() || failure()
+        with:
+          sarif_file: results.sarif
+
   SonarScan:
     name: 🔍 SonarCube Scan
     runs-on: ubuntu-latest

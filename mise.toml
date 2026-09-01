@@ -1,0 +1,20 @@
+[settings]
+idiomatic_version_file_enable_tools = ['node', 'pnpm']
+
+[env]
+_.path = ['{{config_root}}/node_modules/.bin']
+
+[tools]
+checkov = "latest"
+pre-commit = "latest"
+pipx = "latest"
+"pipx:detect-secrets" = "latest"
+
+[hooks]
+postinstall = { run = "pre-commit install", shell = "bash -c" }
+
+[shell_alias]
+"aws:sandbox"='eval $(gds-cli aws once-events-aggregator-development-admin -e)'
+"aws:sandbox:web"='gds-cli aws once-events-aggregator-development-admin -l'
+"aws:staging"='eval $(gds-cli aws once-events-aggregator-staging-admin -e)'
+"aws:staging:web"='gds-cli aws once-events-aggregator-staging-admin -l'

@@ -9,7 +9,7 @@ export const SsmParameters = {
   UnsApiUrl: 'uns-api-url',
   UnsMtlsCertArn: 'uns-mtls-cert-arn',
   UnsMtlsKeyArn: 'uns-mtls-key-arn',
-  UnsApiKey: 'uns-api-key',
+  UnsApiKey: 'uns-api-key', // pragma: allowlist secret
 } as const;
 
 export type SsmParameterKey =

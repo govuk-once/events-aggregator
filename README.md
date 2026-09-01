@@ -32,7 +32,7 @@ pnpm run test:coverage
 
 ### Linting
 
-To run the linting checks run 
+To run the linting checks run
 
 
 ```sh
