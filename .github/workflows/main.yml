@@ -57,12 +57,13 @@ jobs:
   DeployToDev:
     name: 🛠️  Deploy To Dev Env
     needs: Release
-    secrets: inherit
     uses: ./.github/workflows/_build_deploy.yml
     with:
       environment: development
       github-environment: development
       VERSION: ${{needs.Release.outputs.semVer}}@${{ github.sha }}
+    secrets:
+      DEPLOYMENT_ROLE: ${{ secrets.DEV_DEPLOYMENT_ROLE }}
 
   SeedDev:
     name: Seed dev data
@@ -75,11 +76,23 @@ jobs:
     secrets:
       DEPLOYMENT_ROLE: ${{ secrets.DEV_DEPLOYMENT_ROLE }}
 
-  # DeployToStaging:
-  #   name: 🛠️  Deploy To Staging Env
-  #   needs: QualityChecks
-  #   secrets: inherit
-  #   uses: ./.github/workflows/_build_deploy.yaml
-  #   with:
-  #     environment: staging
-  #     aws_account: 33333333333
+  DeployToStaging:
+    name: 🛠️  Deploy To Staging Env
+    needs: DeployToDev
+    uses: ./.github/workflows/_build_deploy.yaml
+    with:
+      environment: staging
+      github-environment: staging
+    secrets:
+      DEPLOYMENT_ROLE: ${{ secrets.STAGING_DEPLOYMENT_ROLE }}
+
+  SeedStaging:
+    name: Seed dev data
+    needs: DeployToStaging
+    uses: ./.github/workflows/_seed_data.yml
+    with:
+      environment-name: staging
+      service-name: dynamotable
+      table-name: staging-dynamotable-sourceStore
+    secrets:
+      DEPLOYMENT_ROLE: ${{ secrets.STAGING_DEPLOYMENT_ROLE }}

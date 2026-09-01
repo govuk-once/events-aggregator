@@ -19,7 +19,7 @@ on:
         required: false
         default: 'eu-west-2'
     secrets:
-      DEV_DEPLOYMENT_ROLE:
+      DEPLOYMENT_ROLE:
         description: 'AWS deployment role to assume'
         required: true
 
@@ -39,7 +39,7 @@ on:
         default: 'eu-west-2'
         type: string
     secrets:
-      DEV_DEPLOYMENT_ROLE:
+      DEPLOYMENT_ROLE:
         description: 'AWS deployment role to assume'
         required: true
 
@@ -83,7 +83,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@56d6a583f00f6bad6d19d91d53a7bc3b8143d0e9 # v5.1.1
         with:
-          role-to-assume: ${{ secrets.DEV_DEPLOYMENT_ROLE }}
+          role-to-assume: ${{ secrets.DEPLOYMENT_ROLE }}
           aws-region: ${{ inputs.aws_region }}
           output-env-credentials: true
 
