@@ -1,0 +1,11 @@
+## PNPM Configuration
+
+# Defines what linker should be used for installing Node packages
+nodeLinker: hoisted
+
+# A map of package matchers to explicitly allow (true) or disallow (false) script execution
+allowBuilds:
+  esbuild: true
+
+# Defines the minimum number of minutes that must pass after a version is published before pnpm will install it
+minimumReleaseAge: 10080 # 7 days in minutes
