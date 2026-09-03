@@ -185,6 +185,12 @@ jobs:
       - name: Run CDK Synth
         run: pnpm run cdk synth
 
+      - name: Upload output
+        uses: actions/upload-artifact@v4
+        with:
+          name: cdkout
+          path: cdk.out
+
   CheckovScan:
     name: 🔍 Checkov Scan
     runs-on: ubuntu-latest
@@ -209,6 +215,11 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Download cdk.out
+        uses: actions/download-artifact@v5
+        with:
+          name: cdkout
 
       - name: Checkov GitHub Action
         uses: bridgecrewio/checkov-action@99bb2caf247dfd9f03cf984373bc6043d4e32ebf #v12.1347.0

@@ -78,7 +78,7 @@ jobs:
   DeployToStaging:
     name: 🛠️  Deploy To Staging Env
     needs: DeployToDev
-    uses: ./.github/workflows/_build_deploy.yaml
+    uses: ./.github/workflows/_build_deploy.yml
     with:
       environment: staging
       github-environment: staging
