@@ -33,6 +33,7 @@ jobs:
     with:
       environment: pr-${{ github.event.pull_request.number }}
       github-environment: development
+      VERSION: '0.0.0'
     secrets:
       DEPLOYMENT_ROLE: ${{ secrets.DEV_DEPLOYMENT_ROLE }}
 
