@@ -43,8 +43,8 @@ jobs:
           node-version-file: .nvmrc
           cache: 'pnpm'
 
-      - name: Install Dependencies
-        run: pnpm ci
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Run Semantic Release
         id: release
