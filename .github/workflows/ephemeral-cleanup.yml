@@ -1,0 +1,56 @@
+name: Ephemeral Environment Cleanup
+
+on:
+  pull_request:
+    types: [closed]
+
+env:
+  AWS_REGION: eu-west-2
+  NODE_VERSION: '24'
+  ENVIRONMENT: pr-${{ github.event.pull_request.number }}
+  GITHUB_OWNER: ${{ github.repository_owner }}
+  GITHUB_REPO: ${{ github.event.repository.name }}
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  cleanup:
+    name: Destroy Ephemeral Environment
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 #v6
+        with:
+          persist-credentials: false
+
+      - name: Install dependencies
+        run: |
+          npm install -g pnpm
+          pnpm install
+
+      - name: Setup node
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f #v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install Dependancies
+        run: pnpm i --frozen-lockfile
+
+      - name: Configure AWS credentials
+        id: aws-cred-dev
+        uses: aws-actions/configure-aws-credentials@56d6a583f00f6bad6d19d91d53a7bc3b8143d0e9 # v5.1.1
+        with:
+          role-to-assume: ${{ secrets.DEV_DEPLOYMENT_ROLE }}
+          aws-region: eu-west-2
+          output-credentials: true
+
+      - name: Deploy CDK stack
+        run: |
+          npx nx run cdk:destroy:dev
+        env:
+          CDK_DEPLOYMENT_ROLE_ARN: ${{steps.aws-creds-dev.outputs.authenticated-arn}}
