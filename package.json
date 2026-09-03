@@ -54,7 +54,6 @@
     "aws-cdk": "2.1033.0",
     "chai": "^6.2.1",
     "concurrently": "^9.2.1",
-    "conventional-changelog-conventionalcommits": "^10.4.0",
     "esbuild": "^0.27.1",
     "eslint": "^9.39.1",
     "eslint-config-prettier": "^10.1.8",
