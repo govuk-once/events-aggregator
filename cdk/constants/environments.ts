@@ -18,7 +18,7 @@ export const serviceMetadata = {
   serviceName: 'events-aggregator',
   teamName: 'events-aggregator-team',
   repositoryUrl: 'https://github.com/govuk-once/events-aggregator',
-  version: '0.1.0',
+  version: process.env.VERSION ?? '0.1.0',
   costCenter: 'update-me',
 };
 

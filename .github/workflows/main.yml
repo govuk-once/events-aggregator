@@ -77,11 +77,14 @@ jobs:
 
   DeployToStaging:
     name: 🛠️  Deploy To Staging Env
-    needs: DeployToDev
+    needs:
+      - Release
+      - DeployToDev
     uses: ./.github/workflows/_build_deploy.yml
     with:
       environment: staging
       github-environment: staging
+      VERSION: ${{needs.Release.outputs.semVer}}@${{ github.sha }}
     secrets:
       DEPLOYMENT_ROLE: ${{ secrets.STAGING_DEPLOYMENT_ROLE }}
 
