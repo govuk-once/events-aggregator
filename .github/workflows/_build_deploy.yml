@@ -18,6 +18,11 @@ on:
         type: string
         required: false
         default: 'eu-west-2'
+      VERSION:
+        description: 'Semantic version being deployed'
+        type: string
+        default: '0.0.0'
+        required: true
     secrets:
       DEPLOYMENT_ROLE:
         description: 'AWS deployment role to assume'
@@ -38,6 +43,11 @@ on:
         required: false
         default: 'eu-west-2'
         type: string
+      VERSION:
+        description: 'Semantic version being deployed'
+        type: string
+        default: '0.0.0'
+        required: true
     secrets:
       DEPLOYMENT_ROLE:
         description: 'AWS deployment role to assume'
@@ -97,3 +107,5 @@ jobs:
 
       - name: Deploy to Environment
         run: pnpm run deploy:dev
+        env:
+          VERSION: ${{ vars.VERSION }}
