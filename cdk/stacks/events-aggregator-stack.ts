@@ -469,6 +469,16 @@ export class EventsAggregatorStack extends cdk.Stack {
       }),
     );
 
+    new cdk.CfnOutput(this, 'TravelConfigKey', {
+      value: flexConfigKey.keyArn,
+      description: 'Travel KMS Config key arn',
+    });
+
+    new cdk.CfnOutput(this, 'TravelKMSDataKey', {
+      value: dataKey.keyArn,
+      description: 'Travel KMS data key arn',
+    });
+
     new cdk.CfnOutput(this, 'FlexTravelConfigSecretArn', {
       value: flexTravelConfigSecret.secretArn,
       description: 'Secret the FLEX account reads to connect to this account',
