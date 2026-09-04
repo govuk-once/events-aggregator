@@ -50,7 +50,6 @@ jobs:
           output-credentials: true
 
       - name: Deploy CDK stack
-        run: |
-          npx nx run cdk:destroy:dev
+        run: pnpm run destroy:dev
         env:
           CDK_DEPLOYMENT_ROLE_ARN: ${{steps.aws-creds-dev.outputs.authenticated-arn}}
