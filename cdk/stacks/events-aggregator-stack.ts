@@ -428,7 +428,7 @@ export class EventsAggregatorStack extends cdk.Stack {
         resources: ['*'],
         conditions: {
           StringEquals: {
-            'kms:ViaService': `secretsmanager.${this.region}.amazon.com`,
+            'kms:ViaService': `secretsmanager.${this.region}.amazonaws.com`,
           },
         },
       }),
