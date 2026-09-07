@@ -47,7 +47,7 @@
     "@semantic-release/exec": "^7.1.0",
     "@types/aws-lambda": "^8.10.162",
     "@types/chai": "^5.2.3",
-    "@types/node": "^24.10.1",
+    "@types/node": "^26.4.0",
     "@typescript-eslint/eslint-plugin": "^8.48.1",
     "@typescript-eslint/parser": "^8.48.1",
     "@vitest/coverage-v8": "4.0.15",
