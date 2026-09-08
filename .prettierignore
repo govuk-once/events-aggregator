@@ -3,3 +3,4 @@ cdk.out
 node_modules
 docs
 readme.md
+pnpm-lock.yaml
