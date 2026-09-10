@@ -93,7 +93,7 @@
     "nock": "^14.0.17",
     "secrets": "link:@aws-lambda-powertools/parameters/secrets",
     "tsx": "^4.23.13",
-    "undici": "7.24.0",
+    "undici": "8.10.1",
     "uuid": "^14.0.2",
     "vite-tsconfig-paths": "^6.1.1"
   }
