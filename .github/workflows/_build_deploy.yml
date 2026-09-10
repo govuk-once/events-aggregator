@@ -62,6 +62,7 @@ jobs:
       FLEX_ACCOUNT_ID: ${{ vars.FLEX_ACCOUNT_ID }}
       FLEX_EXTERNAL_ID: ${{ vars.FLEX_EXTERNAL_ID }}
       ENVIRONMENT: ${{ inputs.environment }}
+      VERSION: ${{ inputs.VERSION }}
     permissions:
       contents: write
       pull-requests: write
@@ -107,5 +108,3 @@ jobs:
 
       - name: Deploy to Environment
         run: pnpm run deploy:dev
-        env:
-          VERSION: ${{ vars.VERSION }}

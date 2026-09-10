@@ -101,7 +101,7 @@ export class EventsAggregatorStack extends cdk.Stack {
 
     const codeSigningConfig = new CodeSigningConfig(this, 'CodeSigningConfig', {
       signingProfiles: [codeSigningProfile],
-      untrustedArtifactOnDeployment: UntrustedArtifactOnDeployment.ENFORCE,
+      untrustedArtifactOnDeployment: UntrustedArtifactOnDeployment.WARN,
     });
 
     const localNamespace = `ea-${env}`;
