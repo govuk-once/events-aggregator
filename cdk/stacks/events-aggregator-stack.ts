@@ -7,6 +7,11 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import * as events from 'aws-cdk-lib/aws-events';
 import { Construct } from 'constructs';
+import { SigningProfile, Platform } from 'aws-cdk-lib/aws-signer';
+import {
+  CodeSigningConfig,
+  UntrustedArtifactOnDeployment,
+} from 'aws-cdk-lib/aws-lambda';
 import { LambdaFactory } from '../cdk_constructs/LambdaFunctionFactory';
 import {
   getEnvironment,
@@ -89,6 +94,15 @@ export class EventsAggregatorStack extends cdk.Stack {
       cdk.Tags.of(this).add('Ephemeral', 'true');
       cdk.Tags.of(this).add('PullRequest', pullRequestNumber);
     }
+
+    const codeSigningProfile = new SigningProfile(this, 'CodeSigningProfile', {
+      platform: Platform.AWS_LAMBDA_SHA384_ECDSA,
+    });
+
+    const codeSigningConfig = new CodeSigningConfig(this, 'CodeSigningConfig', {
+      signingProfiles: [codeSigningProfile],
+      untrustedArtifactOnDeployment: UntrustedArtifactOnDeployment.ENFORCE,
+    });
 
     const localNamespace = `ea-${env}`;
     const params = [
@@ -204,6 +218,7 @@ export class EventsAggregatorStack extends cdk.Stack {
         code: lambda.Code.fromAsset(
           join(__dirname, '../../dist/travel-digestion'),
         ),
+        codeSigningConfig,
         description: 'Polls the content api and sends events to UNS',
         duration: 10,
         key: logKey,
@@ -241,6 +256,7 @@ export class EventsAggregatorStack extends cdk.Stack {
       'SingleEventLambda',
       {
         code: lambda.Code.fromAsset(join(__dirname, '../../dist/single-event')),
+        codeSigningConfig,
         description: 'sends a single event to UNS',
         duration: 10,
         key: logKey,
@@ -305,6 +321,7 @@ export class EventsAggregatorStack extends cdk.Stack {
         code: lambda.Code.fromAsset(
           join(__dirname, '../../dist/event-processing'),
         ),
+        codeSigningConfig,
         description: 'Processes the events from the SQS queue',
         duration: 10,
         key: logKey,
@@ -332,6 +349,7 @@ export class EventsAggregatorStack extends cdk.Stack {
         code: lambda.Code.fromAsset(
           join(__dirname, '../../dist/aggregated-event'),
         ),
+        codeSigningConfig,
         description:
           'Create and send daily or weekly aggregated event digests to UNS',
         duration: 30,
