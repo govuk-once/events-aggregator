@@ -19,6 +19,8 @@ import {
   getResourceNamePrefix,
   isEphemeralEnvironment,
   isPullRequestEnvironment,
+  releaseNotificationSsmKeys,
+  ssmPlaceholderValue,
 } from '../constants/environments';
 import {
   EventBridgeScheduleFactory,
@@ -33,6 +35,7 @@ import {
 } from '../cdk_constructs/DynamoTableFactory';
 import { SqsQueueFactory } from '../cdk_constructs/SqsQueueFactory';
 import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
+import { NotificationFactory } from '../cdk_constructs/NotificationFactory';
 
 interface IUnsConfig {
   certArn: ISecret;
@@ -487,6 +490,13 @@ export class EventsAggregatorStack extends cdk.Stack {
       }),
     );
 
+    // Release notifications get their own topic and Slack channel so a deploy
+    // announcement can never be mistaken for an operational alarm. Ephemeral PR
+    // stacks are left out - that channel would only ever carry noise.
+    if (!isPullRequestEnvironment()) {
+      this.createReleaseNotifications(namePrefix, props.serviceName);
+    }
+
     new cdk.CfnOutput(this, 'TravelConfigKey', {
       value: flexConfigKey.keyArn,
       description: 'Travel KMS Config key arn',
@@ -504,6 +514,90 @@ export class EventsAggregatorStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'FlexTravelReadRoleArn', {
       value: flexTravelReadRole.roleArn,
+    });
+  }
+
+  /**
+   * Create the SNS topic the deployment pipeline announces successful releases
+   * on, and the Slack channel that subscribes to it. The topic is deliberately
+   * separate from the operational alarm topics.
+   */
+  private createReleaseNotifications(
+    namePrefix: string,
+    serviceName: string,
+  ): void {
+    const notificationFactory = new NotificationFactory(this, serviceName);
+
+    const [slackWorkspaceId, slackChannelId] = [
+      releaseNotificationSsmKeys.slackWorkspaceId,
+      releaseNotificationSsmKeys.slackChannelId,
+    ].map((key: string) =>
+      StringParameter.valueForStringParameter(
+        this,
+        `/${this.sharedNamespace}/${key}`,
+      ),
+    );
+
+    const notificationKey = new kms.Key(this, 'NotificationEncryptionKey', {
+      alias: `${namePrefix}-notification-key`,
+      description: 'Encrypts release notifications at rest in SNS',
+      enableKeyRotation: true,
+      removalPolicy: isEphemeralEnvironment()
+        ? cdk.RemovalPolicy.DESTROY
+        : cdk.RemovalPolicy.RETAIN,
+    });
+
+    const releaseTopic = notificationFactory.createTopic(
+      'ReleaseNotifications',
+      {
+        name: 'release-notifications',
+        displayName: 'Release notifications',
+        key: notificationKey,
+      },
+    );
+
+    const slackChannel = notificationFactory.createSlackChannel(
+      'ReleaseSlackChannel',
+      {
+        name: 'release-notifications',
+        workspaceId: slackWorkspaceId,
+        channelId: slackChannelId,
+        topics: [releaseTopic],
+      },
+    );
+
+    // Both ids are seeded with placeholders and Chatbot rejects those, so hold
+    // the channel configuration back until real values are in SSM. The topic is
+    // created either way, which keeps the deploy - and the pipeline step that
+    // publishes to it - working in an account Slack is not yet wired up in.
+    const channelConfigured = new cdk.CfnCondition(
+      this,
+      'ReleaseSlackChannelConfigured',
+      {
+        expression: cdk.Fn.conditionAnd(
+          cdk.Fn.conditionNot(
+            cdk.Fn.conditionEquals(
+              slackWorkspaceId,
+              ssmPlaceholderValue(releaseNotificationSsmKeys.slackWorkspaceId),
+            ),
+          ),
+          cdk.Fn.conditionNot(
+            cdk.Fn.conditionEquals(
+              slackChannelId,
+              ssmPlaceholderValue(releaseNotificationSsmKeys.slackChannelId),
+            ),
+          ),
+        ),
+      },
+    );
+
+    (slackChannel.node.defaultChild as cdk.CfnResource).cfnOptions.condition =
+      channelConfigured;
+
+    new cdk.CfnOutput(this, 'ReleaseNotificationTopicArn', {
+      value: releaseTopic.topicArn,
+      description:
+        'SNS topic the deployment pipeline publishes release notifications to',
     });
   }
 

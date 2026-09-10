@@ -4,7 +4,12 @@ import {
   PutParameterCommand,
   SSMClient,
 } from '@aws-sdk/client-ssm';
-import { getEnvironment, serviceMetadata } from './constants/environments.js';
+import {
+  getEnvironment,
+  releaseNotificationSsmKeys,
+  serviceMetadata,
+  ssmPlaceholderValue,
+} from './constants/environments.js';
 
 const unwrap = async <Result>(
   promise: Promise<Result>,
@@ -26,6 +31,12 @@ export const configurableParameters: Record<string, string> = {
   'uns-api-url': 'uns-api-url-placeholder',
   'uns-api-key': 'uns-api-key-placeholder',
   'uns-kms-key-arn': 'uns-kms-key-arn-placeholder',
+  [releaseNotificationSsmKeys.slackWorkspaceId]: ssmPlaceholderValue(
+    releaseNotificationSsmKeys.slackWorkspaceId,
+  ),
+  [releaseNotificationSsmKeys.slackChannelId]: ssmPlaceholderValue(
+    releaseNotificationSsmKeys.slackChannelId,
+  ),
 };
 
 export const parametersForDeletion: string[] = [];

@@ -23,6 +23,11 @@ on:
         type: string
         default: '0.0.0'
         required: true
+      notify-release:
+        description: 'Announce a successful deployment in the release notifications Slack channel'
+        type: boolean
+        required: false
+        default: true
     secrets:
       DEPLOYMENT_ROLE:
         description: 'AWS deployment role to assume'
@@ -48,6 +53,11 @@ on:
         type: string
         default: '0.0.0'
         required: true
+      notify-release:
+        description: 'Announce a successful deployment in the release notifications Slack channel'
+        type: boolean
+        required: false
+        default: true
     secrets:
       DEPLOYMENT_ROLE:
         description: 'AWS deployment role to assume'
@@ -73,7 +83,7 @@ jobs:
       group: deploy-${{ inputs.environment }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #v5.0
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #v5.0
 
       - name: Get PNPM Version
         id: pnpm-version
@@ -83,7 +93,7 @@ jobs:
         run: npm install -g ${{ steps.pnpm-version.outputs.pnpm_version }}
 
       - name: setup node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 #v4.0
+        uses: actions/setup-node@8f152de45cc393bb48ce5d89d36b731f54556e65 #v4.0
         with:
           node-version-file: .nvmrc
           cache: 'pnpm'
@@ -92,7 +102,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@6782cb1b6df5d32e9354c1e6d6da4f956c0d61c4 # v5.1.1
+        uses: aws-actions/configure-aws-credentials@56d6a583f00f6bad6d19d91d53a7bc3b8143d0e9 # v5.1.1
         with:
           role-to-assume: ${{ secrets.DEPLOYMENT_ROLE }}
           aws-region: ${{ inputs.aws_region }}
@@ -108,3 +118,97 @@ jobs:
 
       - name: Deploy to Environment
         run: pnpm run deploy:dev
+        env:
+          VERSION: ${{ vars.VERSION }}
+
+      - name: Announce release in Slack
+        # A missed announcement must not fail an otherwise-good deploy, so the
+        # step reports into the job summary instead of failing the job.
+        if: ${{ inputs.notify-release }}
+        continue-on-error: true
+        shell: bash
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          VERSION: ${{ inputs.VERSION }}
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          AWS_REGION: ${{ inputs.aws_region }}
+        run: |
+          set -euo pipefail
+
+          # Mirrors getResourceNamePrefix() in cdk/constants/environments.ts
+          NAME_PREFIX="$(printf '%s' "${ENVIRONMENT}-events-aggregator" |
+            tr '[:upper:]' '[:lower:]' | cut -c1-40)"
+          STACK_NAME="${NAME_PREFIX}-stack"
+
+          TOPIC_ARN="$(aws cloudformation describe-stacks \
+            --stack-name "${STACK_NAME}" \
+            --query "Stacks[0].Outputs[?OutputKey=='ReleaseNotificationTopicArn'].OutputValue" \
+            --output text 2>/dev/null || true)"
+
+          if [ -z "${TOPIC_ARN}" ] || [ "${TOPIC_ARN}" = "None" ]; then
+            echo "::warning title=Release notification skipped::${STACK_NAME} has no ReleaseNotificationTopicArn output."
+            echo "### Release notification — ${ENVIRONMENT}" >> "${GITHUB_STEP_SUMMARY}"
+            echo "" >> "${GITHUB_STEP_SUMMARY}"
+            echo "Result: ⚠️  skipped — no release notification topic on \`${STACK_NAME}\`." >> "${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
+
+          # VERSION arrives as "<semver>@<sha>"; the release tag is the semver half.
+          SEMVER="${VERSION%%@*}"
+          if [ -n "${SEMVER}" ] && [ "${SEMVER}" != "0.0.0" ]; then
+            LINK_URL="${SERVER_URL}/${REPOSITORY}/releases/tag/v${SEMVER}"
+            LINK_TEXT="Release notes for v${SEMVER}"
+          else
+            LINK_URL="${RUN_URL}"
+            LINK_TEXT="Workflow run"
+          fi
+
+          SERVICE="${REPOSITORY##*/}"
+          DESCRIPTION="$(printf '*Version:* `%s`\n*Environment:* `%s`\n<%s|%s>' \
+            "${VERSION}" "${ENVIRONMENT}" "${LINK_URL}" "${LINK_TEXT}")"
+
+          # AWS Chatbot custom notification schema, so Slack renders a card
+          # rather than a wall of raw JSON.
+          MESSAGE="$(jq -nc \
+            --arg title ":rocket: ${SERVICE} deployed to ${ENVIRONMENT}" \
+            --arg description "${DESCRIPTION}" \
+            --arg summary "${SERVICE} ${VERSION} deployed to ${ENVIRONMENT}" \
+            --arg version "${VERSION}" \
+            --arg environment "${ENVIRONMENT}" \
+            --arg releaseUrl "${LINK_URL}" \
+            --arg runUrl "${RUN_URL}" \
+            '{
+              version: "1.0",
+              source: "custom",
+              content: {
+                textType: "client-markdown",
+                title: $title,
+                description: $description
+              },
+              metadata: {
+                summary: $summary,
+                eventType: "deployment.succeeded",
+                additionalContext: {
+                  version: $version,
+                  environment: $environment,
+                  release: $releaseUrl,
+                  workflowRun: $runUrl
+                }
+              }
+            }')"
+
+          # Needs sns:Publish on the topic and kms:GenerateDataKey*/kms:Decrypt
+          # on the notification key — the topic is encrypted at rest.
+          aws sns publish --topic-arn "${TOPIC_ARN}" --message "${MESSAGE}" > /dev/null
+
+          {
+            echo "### Release notification — ${ENVIRONMENT}"
+            echo ""
+            echo "Result: ✅ published"
+            echo ""
+            echo "- Version: \`${VERSION}\`"
+            echo "- Topic: \`${TOPIC_ARN}\`"
+            echo "- Link: ${LINK_URL}"
+          } >> "${GITHUB_STEP_SUMMARY}"

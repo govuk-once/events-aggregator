@@ -59,3 +59,11 @@ export const getResourceNamePrefix = (): string => {
 export const generateUniqueId = (): string => {
   return Math.random().toString(36).substring(2, 7);
 };
+
+export const releaseNotificationSsmKeys = {
+  slackWorkspaceId: 'release-slack-workspace-id',
+  slackChannelId: 'release-slack-channel-id',
+};
+
+export const ssmPlaceholderValue = (key: string): string =>
+  `${key}-placeholder`;
