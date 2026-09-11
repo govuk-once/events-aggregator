@@ -78,8 +78,8 @@ importers:
         specifier: ^4.23.13
         version: 4.23.13
       undici:
-        specifier: 7.24.0
-        version: 7.24.0
+        specifier: 8.10.1
+        version: 8.10.1
       uuid:
         specifier: ^14.0.2
         version: 14.0.2
@@ -3211,6 +3211,10 @@ packages:
   undici@7.24.0:
     resolution: {integrity: sha512-jxytwMHhsbdpBXxLAcuu0fzlQeXCNnWdDyRHpvWsUl8vd98UwYdl9YTyn8/HcpcJPC3pwUveefsa3zTxyD/ERg==}
     engines: {node: '>=20.18.1'}
+
+  undici@8.10.1:
+    resolution: {integrity: sha512-YQ3WlbqjYMmNpdvDH64jAgLjxuAR9+649calDWhbshYaeQGO2bR4nI94ORJmwI3J9YhoKQnpyGOK+0zlWS5N5Q==}
+    engines: {node: '>=22.19.0'}
 
   unicode-emoji-modifier-base@1.0.0:
     resolution: {integrity: sha512-yLSH4py7oFH3oG/9K+XWrz1pSi3dfUrWEnInbxMfArOfc1+33BlGPQtLsOYwvdMy11AwUBetYuaRxSPqgkq+8g==}
@@ -6523,6 +6527,8 @@ snapshots:
   undici@6.28.0: {}
 
   undici@7.24.0: {}
+
+  undici@8.10.1: {}
 
   unicode-emoji-modifier-base@1.0.0: {}
 
