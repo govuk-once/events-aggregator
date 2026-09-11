@@ -14,11 +14,14 @@ import {
 } from 'aws-cdk-lib/aws-lambda';
 import { LambdaFactory } from '../cdk_constructs/LambdaFunctionFactory';
 import {
+  alertsNotificationSsmKeys,
   getEnvironment,
   getPullRequestNumber,
   getResourceNamePrefix,
   isEphemeralEnvironment,
   isPullRequestEnvironment,
+  isSandboxEnvironment,
+  ISlackChannelSsmKeys,
   releaseNotificationSsmKeys,
   ssmPlaceholderValue,
 } from '../constants/environments';
@@ -35,7 +38,16 @@ import {
 } from '../cdk_constructs/DynamoTableFactory';
 import { SqsQueueFactory } from '../cdk_constructs/SqsQueueFactory';
 import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
+import { ITopic } from 'aws-cdk-lib/aws-sns';
 import { NotificationFactory } from '../cdk_constructs/NotificationFactory';
+
+interface ISlackChannelWiring {
+  id: string;
+  name: string;
+  keys: ISlackChannelSsmKeys;
+  topics: ITopic[];
+  key: kms.IKey;
+}
 
 interface IUnsConfig {
   certArn: ISecret;
@@ -61,6 +73,7 @@ const constants = {
 export class EventsAggregatorStack extends cdk.Stack {
   public readonly sourceTable: ITable;
   public readonly eventStoreTable: ITableWithStream;
+  public readonly alertsTopic: ITopic;
   public readonly sharedNamespace: string = `ea-runner`;
 
   private readonly dynamoFactory = new DynamoDbTableFactory(
@@ -490,12 +503,10 @@ export class EventsAggregatorStack extends cdk.Stack {
       }),
     );
 
-    // Release notifications get their own topic and Slack channel so a deploy
-    // announcement can never be mistaken for an operational alarm. Ephemeral PR
-    // stacks are left out - that channel would only ever carry noise.
-    if (!isPullRequestEnvironment()) {
-      this.createReleaseNotifications(namePrefix, props.serviceName);
-    }
+    // Operational alerts and release announcements are kept on separate topics
+    // and separate channels, so a deploy announcement can never be mistaken for
+    // an alarm.
+    this.alertsTopic = this.createNotifications(namePrefix, props.serviceName);
 
     new cdk.CfnOutput(this, 'TravelConfigKey', {
       value: flexConfigKey.keyArn,
@@ -518,33 +529,39 @@ export class EventsAggregatorStack extends cdk.Stack {
   }
 
   /**
-   * Create the SNS topic the deployment pipeline announces successful releases
-   * on, and the Slack channel that subscribes to it. The topic is deliberately
-   * separate from the operational alarm topics.
+   * Create the notification topics - operational alerts, and the release
+   * announcements the deployment pipeline publishes - and the Slack channels
+   * that subscribe to them. The topics are created in every environment; only
+   * the Slack integration is conditional.
+   *
+   * @returns the topic alarm constructs publish operational alerts to
    */
-  private createReleaseNotifications(
-    namePrefix: string,
-    serviceName: string,
-  ): void {
+  private createNotifications(namePrefix: string, serviceName: string): ITopic {
     const notificationFactory = new NotificationFactory(this, serviceName);
-
-    const [slackWorkspaceId, slackChannelId] = [
-      releaseNotificationSsmKeys.slackWorkspaceId,
-      releaseNotificationSsmKeys.slackChannelId,
-    ].map((key: string) =>
-      StringParameter.valueForStringParameter(
-        this,
-        `/${this.sharedNamespace}/${key}`,
-      ),
-    );
 
     const notificationKey = new kms.Key(this, 'NotificationEncryptionKey', {
       alias: `${namePrefix}-notification-key`,
-      description: 'Encrypts release notifications at rest in SNS',
+      description: 'Encrypts notifications at rest in SNS',
       enableKeyRotation: true,
       removalPolicy: isEphemeralEnvironment()
         ? cdk.RemovalPolicy.DESTROY
         : cdk.RemovalPolicy.RETAIN,
+    });
+
+    // Without this an alarm action fails silently - CloudWatch cannot put a
+    // message on a topic whose key it is not allowed to use.
+    notificationKey.addToResourcePolicy(
+      new iam.PolicyStatement({
+        principals: [new iam.ServicePrincipal('cloudwatch.amazonaws.com')],
+        actions: ['kms:Decrypt', 'kms:GenerateDataKey*'],
+        resources: ['*'],
+      }),
+    );
+
+    const alertsTopic = notificationFactory.createTopic('OperationalAlerts', {
+      name: 'operational-alerts',
+      displayName: 'Operational alerts',
+      key: notificationKey,
     });
 
     const releaseTopic = notificationFactory.createTopic(
@@ -556,48 +573,88 @@ export class EventsAggregatorStack extends cdk.Stack {
       },
     );
 
-    const slackChannel = notificationFactory.createSlackChannel(
-      'ReleaseSlackChannel',
-      {
-        name: 'release-notifications',
-        workspaceId: slackWorkspaceId,
-        channelId: slackChannelId,
-        topics: [releaseTopic],
-      },
-    );
+    // A sandbox - a developer's own stack, or a per pull request stack - shares
+    // its account with the real environments, so it gets the topics but never
+    // its own Slack integration.
+    if (!isSandboxEnvironment()) {
+      [
+        {
+          id: 'AlertsSlackChannel',
+          name: 'operational-alerts',
+          keys: alertsNotificationSsmKeys,
+          topics: [alertsTopic],
+          key: notificationKey,
+        },
+        {
+          id: 'ReleaseSlackChannel',
+          name: 'release-notifications',
+          keys: releaseNotificationSsmKeys,
+          topics: [releaseTopic],
+          key: notificationKey,
+        },
+      ].forEach((wiring: ISlackChannelWiring) =>
+        this.subscribeSlackChannel(notificationFactory, wiring),
+      );
+    }
 
-    // Both ids are seeded with placeholders and Chatbot rejects those, so hold
-    // the channel configuration back until real values are in SSM. The topic is
-    // created either way, which keeps the deploy - and the pipeline step that
-    // publishes to it - working in an account Slack is not yet wired up in.
-    const channelConfigured = new cdk.CfnCondition(
-      this,
-      'ReleaseSlackChannelConfigured',
-      {
-        expression: cdk.Fn.conditionAnd(
-          cdk.Fn.conditionNot(
-            cdk.Fn.conditionEquals(
-              slackWorkspaceId,
-              ssmPlaceholderValue(releaseNotificationSsmKeys.slackWorkspaceId),
-            ),
-          ),
-          cdk.Fn.conditionNot(
-            cdk.Fn.conditionEquals(
-              slackChannelId,
-              ssmPlaceholderValue(releaseNotificationSsmKeys.slackChannelId),
-            ),
-          ),
-        ),
-      },
-    );
-
-    (slackChannel.node.defaultChild as cdk.CfnResource).cfnOptions.condition =
-      channelConfigured;
+    new cdk.CfnOutput(this, 'AlertsTopicArn', {
+      value: alertsTopic.topicArn,
+      description: 'SNS topic CloudWatch alarms publish operational alerts to',
+    });
 
     new cdk.CfnOutput(this, 'ReleaseNotificationTopicArn', {
       value: releaseTopic.topicArn,
       description:
         'SNS topic the deployment pipeline publishes release notifications to',
+    });
+
+    return alertsTopic;
+  }
+
+  /**
+   * Subscribe a Slack channel to the given topics. Both ids are seeded as
+   * placeholders and Chatbot rejects those, so the integration is held behind a
+   * condition until each carries a real value. The check is a deploy time one,
+   * so synth neither reads nor needs the values.
+   */
+  private subscribeSlackChannel(
+    factory: NotificationFactory,
+    wiring: ISlackChannelWiring,
+  ): void {
+    const [workspaceId, channelId] = [
+      wiring.keys.slackWorkspaceId,
+      wiring.keys.slackChannelId,
+    ].map((key: string) =>
+      StringParameter.valueForStringParameter(
+        this,
+        `/${this.sharedNamespace}/${key}`,
+      ),
+    );
+
+    const configured = new cdk.CfnCondition(this, `${wiring.id}Configured`, {
+      expression: cdk.Fn.conditionAnd(
+        cdk.Fn.conditionNot(
+          cdk.Fn.conditionEquals(
+            workspaceId,
+            ssmPlaceholderValue(wiring.keys.slackWorkspaceId),
+          ),
+        ),
+        cdk.Fn.conditionNot(
+          cdk.Fn.conditionEquals(
+            channelId,
+            ssmPlaceholderValue(wiring.keys.slackChannelId),
+          ),
+        ),
+      ),
+    });
+
+    factory.createSlackChannel(wiring.id, {
+      name: wiring.name,
+      workspaceId,
+      channelId,
+      topics: wiring.topics,
+      decryptKeys: [wiring.key],
+      createCondition: configured,
     });
   }
 
