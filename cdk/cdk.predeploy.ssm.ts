@@ -4,7 +4,14 @@ import {
   PutParameterCommand,
   SSMClient,
 } from '@aws-sdk/client-ssm';
-import { getEnvironment, serviceMetadata } from './constants/environments.js';
+import {
+  alertsNotificationSsmKeys,
+  getEnvironment,
+  ISlackChannelSsmKeys,
+  releaseNotificationSsmKeys,
+  serviceMetadata,
+  ssmPlaceholderValue,
+} from './constants/environments.js';
 
 const unwrap = async <Result>(
   promise: Promise<Result>,
@@ -19,6 +26,16 @@ const unwrap = async <Result>(
 const env = getEnvironment();
 const namespace = `ea-runner`;
 
+// A Slack channel is identified by a workspace id and a channel id.  Both are
+// seeded with a placeholder - the CDK stack holds the Slack integration back
+// until the real values are supplied through SSM_PARAMETERS_TO_UPDATE.
+const slackChannelParameters = (
+  keys: ISlackChannelSsmKeys,
+): Record<string, string> =>
+  Object.fromEntries(
+    Object.values(keys).map((key) => [key, ssmPlaceholderValue(key)]),
+  );
+
 export const configurableParameters: Record<string, string> = {
   'govuk-feed-url': 'https://www.gov.uk/api/search.json',
   'uns-mtls-cert-arn': 'uns-mtls-cert-arn-placeholder',
@@ -26,6 +43,8 @@ export const configurableParameters: Record<string, string> = {
   'uns-api-url': 'uns-api-url-placeholder',
   'uns-api-key': 'uns-api-key-placeholder',
   'uns-kms-key-arn': 'uns-kms-key-arn-placeholder',
+  ...slackChannelParameters(releaseNotificationSsmKeys),
+  ...slackChannelParameters(alertsNotificationSsmKeys),
 };
 
 export const parametersForDeletion: string[] = [];

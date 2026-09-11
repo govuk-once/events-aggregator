@@ -34,6 +34,8 @@ jobs:
       environment: pr-${{ github.event.pull_request.number }}
       github-environment: development
       VERSION: '0.0.0'
+      # Ephemeral stacks have no release topic, and a PR deploy is not a release.
+      notify-release: false
     secrets:
       DEPLOYMENT_ROLE: ${{ secrets.DEV_DEPLOYMENT_ROLE }}
 

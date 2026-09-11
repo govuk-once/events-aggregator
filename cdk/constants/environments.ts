@@ -18,7 +18,9 @@ export const serviceMetadata = {
   serviceName: 'events-aggregator',
   teamName: 'events-aggregator-team',
   repositoryUrl: 'https://github.com/govuk-once/events-aggregator',
-  version: process.env.VERSION ?? '0.1.0',
+  // `||` not `??`: CI can export VERSION as an empty string, and an empty
+  // Version tag is rejected by CloudFormation (Tags minLength 1).
+  version: process.env.VERSION || '0.1.0',
   costCenter: 'update-me',
 };
 
@@ -41,6 +43,16 @@ export const isPullRequestEnvironment = (): boolean =>
 export const getPullRequestNumber = (): string | undefined =>
   PULL_REQUEST_ENVIRONMENT.exec(getEnvironment())?.[1];
 
+// the long lived environments the pipeline deploys to.  anything else - a
+// developer's own stack, or a per pull request stack - is a sandbox
+const DEPLOYED_ENVIRONMENTS: string[] = [
+  ...Object.values(GovUkOnceEnvironments),
+  ...Object.values(GovUkOnceFullEnvironments),
+];
+
+export const isSandboxEnvironment = (): boolean =>
+  !DEPLOYED_ENVIRONMENTS.includes(getEnvironment());
+
 // identify if is ephemeral environment
 export const isEphemeralEnvironment = (): boolean => {
   const environment = getEnvironment();
@@ -59,3 +71,25 @@ export const getResourceNamePrefix = (): string => {
 export const generateUniqueId = (): string => {
   return Math.random().toString(36).substring(2, 7);
 };
+
+// SSM keys, in the shared namespace, identifying a Slack channel
+export interface ISlackChannelSsmKeys {
+  slackWorkspaceId: string;
+  slackChannelId: string;
+}
+
+// the channel deployment announcements go to
+export const releaseNotificationSsmKeys: ISlackChannelSsmKeys = {
+  slackWorkspaceId: 'release-slack-workspace-id',
+  slackChannelId: 'release-slack-channel-id',
+};
+
+// the channel CloudWatch alarm notifications go to
+export const alertsNotificationSsmKeys: ISlackChannelSsmKeys = {
+  slackWorkspaceId: 'alerts-slack-workspace-id',
+  slackChannelId: 'alerts-slack-channel-id',
+};
+
+// the value a configurable parameter is seeded with until the real one arrives
+export const ssmPlaceholderValue = (key: string): string =>
+  `${key}-placeholder`;
