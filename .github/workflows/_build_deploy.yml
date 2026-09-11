@@ -118,8 +118,6 @@ jobs:
 
       - name: Deploy to Environment
         run: pnpm run deploy:dev
-        env:
-          VERSION: ${{ vars.VERSION }}
 
       - name: Announce release in Slack
         # A missed announcement must not fail an otherwise-good deploy, so the

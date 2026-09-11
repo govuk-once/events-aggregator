@@ -18,7 +18,9 @@ export const serviceMetadata = {
   serviceName: 'events-aggregator',
   teamName: 'events-aggregator-team',
   repositoryUrl: 'https://github.com/govuk-once/events-aggregator',
-  version: process.env.VERSION ?? '0.1.0',
+  // `||` not `??`: CI can export VERSION as an empty string, and an empty
+  // Version tag is rejected by CloudFormation (Tags minLength 1).
+  version: process.env.VERSION || '0.1.0',
   costCenter: 'update-me',
 };
 
