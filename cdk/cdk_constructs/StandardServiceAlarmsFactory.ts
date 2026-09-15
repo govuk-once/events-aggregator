@@ -24,7 +24,7 @@ export enum AlarmPriority {
   P3 = 'P3',
 }
 
-class constants {
+class Constants {
   static readonly API_GATEWAY_5XX_THRESHOLD_PERCENT: number = 5;
   static readonly LAMBDA_ERROR_THRESHOLD_PERCENT: number = 1;
   static readonly LAMBDA_DURATION_P95_THRESHOLD_MS: number = 5000;
@@ -85,19 +85,19 @@ export class StandardServiceAlarmsFactory extends FactoryBase {
 
     const apiThreshold =
       props.apiGateway5xxThresholdPercent ??
-      constants.API_GATEWAY_5XX_THRESHOLD_PERCENT;
+      Constants.API_GATEWAY_5XX_THRESHOLD_PERCENT;
     const lambdaThreshold =
       props.lambdaErrorThresholdPercent ??
-      constants.LAMBDA_ERROR_THRESHOLD_PERCENT;
+      Constants.LAMBDA_ERROR_THRESHOLD_PERCENT;
     const durationThreshold =
       props.lambdaDurationP95ThresholdMs ??
-      constants.LAMBDA_DURATION_P95_THRESHOLD_MS;
+      Constants.LAMBDA_DURATION_P95_THRESHOLD_MS;
     const queueDepthThreshold =
-      props.queueDepthThreshold ?? constants.QUEUE_DEPTH_THRESHOLD;
+      props.queueDepthThreshold ?? Constants.QUEUE_DEPTH_THRESHOLD;
     const periodMinutes =
-      props.evaluationPeriodMinutes ?? constants.EVALUATION_PERIOD_MINUTES;
+      props.evaluationPeriodMinutes ?? Constants.EVALUATION_PERIOD_MINUTES;
     const evaluationPeriods =
-      props.evaluationPeriods ?? constants.EVALUATION_PERIODS;
+      props.evaluationPeriods ?? Constants.EVALUATION_PERIODS;
 
     (props.restApis ?? []).forEach((api, index) => {
       alarms.push(
@@ -278,7 +278,7 @@ export class StandardServiceAlarmsFactory extends FactoryBase {
       ),
       alarmDescription: `SQS dead-letter queue ${queue.queueName} contains messages that failed processing`,
       metric: queue.metricApproximateNumberOfMessagesVisible({
-        period: Duration.minutes(constants.DEAD_LETTER_QUEUE_PERIOD_MINUTES),
+        period: Duration.minutes(Constants.DEAD_LETTER_QUEUE_PERIOD_MINUTES),
         statistic: 'Maximum',
       }),
       threshold: 0,
