@@ -40,6 +40,7 @@ import { SqsQueueFactory } from '../cdk_constructs/SqsQueueFactory';
 import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import { ITopic } from 'aws-cdk-lib/aws-sns';
 import { NotificationFactory } from '../cdk_constructs/NotificationFactory';
+import { StandardServiceAlarmsFactory } from '../cdk_constructs/StandardServiceAlarmsFactory';
 
 interface ISlackChannelWiring {
   id: string;
@@ -507,6 +508,23 @@ export class EventsAggregatorStack extends cdk.Stack {
     // and separate channels, so a deploy announcement can never be mistaken for
     // an alarm.
     this.alertsTopic = this.createNotifications(namePrefix, props.serviceName);
+
+    // The same thresholds apply to every function and queue, so a breach means
+    // the same thing wherever it is raised.
+    new StandardServiceAlarmsFactory(this, props.serviceName).createAlarms(
+      'ServiceAlarms',
+      {
+        alarmTopic: this.alertsTopic,
+        lambdas: [
+          travelDigestionLambda,
+          singleEventLambda,
+          eventProcessingLambda,
+          aggregatedEventLambda,
+        ],
+        queues: [incomingEventsQueue.queue],
+        deadLetterQueues: [incomingEventsQueue.deadLetterQueue],
+      },
+    );
 
     new cdk.CfnOutput(this, 'TravelConfigKey', {
       value: flexConfigKey.keyArn,
