@@ -10,6 +10,8 @@ env:
   ENVIRONMENT: pr-${{ github.event.pull_request.number }}
   GITHUB_OWNER: ${{ github.repository_owner }}
   GITHUB_REPO: ${{ github.event.repository.name }}
+  FLEX_ACCOUNT_ID: ${{ vars.FLEX_ACCOUNT_ID }}
+  FLEX_EXTERNAL_ID: ${{ vars.FLEX_EXTERNAL_ID }}
 
 permissions:
   id-token: write
