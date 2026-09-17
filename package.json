@@ -34,7 +34,7 @@
     "types:check": "tsc --noEmit",
     "deploy:test": "cdk deploy --context environment=test --all --require-approval never",
     "deploy:dev": "cdk deploy --context environment=dev --all --require-approval never",
-    "destroy:dev": "cdk destroy --context environment=dev --all --require-approval never",
+    "destroy:dev": "cdk destroy --context environment=dev --all -f",
     "deploy:stag": "cdk deploy --context environment=stag --all --require-approval never",
     "deploy:prod": "cdk deploy --context environment=prod --all --require-approval never",
     "precommit": "pre-commit run --all-files",
