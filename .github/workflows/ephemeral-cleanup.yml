@@ -10,6 +10,8 @@ env:
   ENVIRONMENT: pr-${{ github.event.pull_request.number }}
   GITHUB_OWNER: ${{ github.repository_owner }}
   GITHUB_REPO: ${{ github.event.repository.name }}
+  FLEX_ACCOUNT_ID: ${{ vars.FLEX_ACCOUNT_ID }}
+  FLEX_EXTERNAL_ID: ${{ vars.FLEX_EXTERNAL_ID }}
 
 permissions:
   id-token: write
@@ -48,6 +50,10 @@ jobs:
           role-to-assume: ${{ secrets.DEV_DEPLOYMENT_ROLE }}
           aws-region: eu-west-2
           output-credentials: true
+
+      - name: Build Application
+        continue-on-error: true
+        run: pnpm run build
 
       - name: Deploy CDK stack
         run: pnpm run destroy:dev
