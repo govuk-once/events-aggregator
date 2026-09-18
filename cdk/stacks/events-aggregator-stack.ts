@@ -419,21 +419,23 @@ export class EventsAggregatorStack extends cdk.Stack {
       });
     });
 
-    (['hourly', 'daily', 'weekly'] as ScheduleFrequency[]).map(
-      (frequency: ScheduleFrequency) => {
-        eventBridgeFactory.createScheduledRule(`${frequency}-schedule`, {
-          name: `${frequency.toUpperCase()}TravelSchedule`,
-          targetFunction: travelIngestionLambda,
-          frequency,
-          enabled: true,
-          eventPayload: {
-            triggeredAt: events.EventField.fromPath('$.time'),
-            schedule: frequency,
-            source: events.EventField.fromPath('$.source'),
-          },
-        });
-      },
-    );
+    for (const frequency of [
+      'hourly',
+      'daily',
+      'weekly',
+    ] as ScheduleFrequency[]) {
+      eventBridgeFactory.createScheduledRule(`${frequency}-schedule`, {
+        name: `${frequency.toUpperCase()}TravelSchedule`,
+        targetFunction: travelIngestionLambda,
+        frequency,
+        enabled: true,
+        eventPayload: {
+          triggeredAt: events.EventField.fromPath('$.time'),
+          schedule: frequency,
+          source: events.EventField.fromPath('$.source'),
+        },
+      });
+    }
 
     const flexTravelReadRole = new iam.Role(this, 'FlexTravelReadRole', {
       roleName: `${namePrefix}-flex-travel-read`,
