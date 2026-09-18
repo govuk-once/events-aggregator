@@ -89,14 +89,24 @@ export const getNotificationPayload = (
   dbEntry: DynamoEvent,
   schedule: Frequency,
 ): NotificationPayload | null => {
+  const lines = (...lines: string[]) => lines.join(`\n`);
+  const segments = (...segments: string[]) => segments.join(`\n\n`);
+  const link = (url: string, label: string) => `[${label}](${url})`;
+
   return {
     Namespace: dbEntry.namespace,
     Group: dbEntry.group,
     Subgroup: schedule,
-    NotificationTitle: `Travel Advice - ${dbEntry.group?.toLocaleUpperCase()}`,
+    NotificationTitle: `${dbEntry.group?.toLocaleUpperCase()}: Travel advice alert`,
     NotificationBody: `There's been a change in country you are interested in`,
-    MessageTitle: `${dbEntry.group?.toLocaleUpperCase()} Travel Advice`,
-    MessageBody: dbEntry.eventNote,
+    MessageTitle: `${dbEntry.group?.toLocaleUpperCase()}: Travel advice alert`,
+    MessageBody: segments(
+      link(`Go to latest`, `govuk://travel/${dbEntry.group})`),
+      lines(`Changes made:`, dbEntry.eventNote),
+      lines(`Time updated:`, dbEntry.eventTimestamp),
+      link(`Manage your countries`, dbEntry.eventNote),
+    ),
+    DeeplinkURL: `govuk://app.gov.uk/topics/travel-abroad`,
   };
 };
 

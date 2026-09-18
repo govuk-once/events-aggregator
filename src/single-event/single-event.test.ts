@@ -129,6 +129,26 @@ const makeRecord = (
   },
 });
 
+const mockRequestPayload = {
+  Namespace: 'travel',
+  Group: 'spain',
+  Subgroup: 'instant',
+  NotificationTitle: 'SPAIN: Travel advice alert',
+  NotificationBody: "There's been a change in country you are interested in",
+  MessageTitle: 'SPAIN: Travel advice alert',
+  MessageBody:
+    '[govuk://travel/spain)](Go to latest)\n' +
+    '\n' +
+    'Changes made:\n' +
+    'Storm warning\n' +
+    '\n' +
+    'Time updated:\n' +
+    '2026-08-10T09:14:22.031Z\n' +
+    '\n' +
+    '[Storm warning](Manage your countries)',
+  DeeplinkURL: `govuk://app.gov.uk/topics/travel-abroad`,
+};
+
 const invoke = async (
   records: DynamoDBRecord[],
 ): Promise<DynamoDBBatchResponse> => {
@@ -201,18 +221,7 @@ describe('Single Event', () => {
     });
 
     const unsScope = nock('http://uns.api')
-      .post('/v1/send-to-group', [
-        {
-          Namespace: 'travel',
-          Group: 'spain',
-          Subgroup: 'instant',
-          NotificationTitle: 'Travel Advice - SPAIN',
-          NotificationBody:
-            "There's been a change in country you are interested in",
-          MessageTitle: 'SPAIN Travel Advice',
-          MessageBody: 'Storm warning',
-        },
-      ])
+      .post('/v1/send-to-group', [mockRequestPayload])
       .reply(200, {}, { content_type: 'application/json' });
 
     const response = await invoke([makeRecord()]);
@@ -236,18 +245,7 @@ describe('Single Event', () => {
     mockGetSecret.mockResolvedValue('-----BEGIN');
 
     const unsScope = nock('http://uns.api')
-      .post('/v1/send-to-group', [
-        {
-          Namespace: 'travel',
-          Group: 'spain',
-          Subgroup: 'instant',
-          NotificationTitle: 'Travel Advice - SPAIN',
-          NotificationBody:
-            "There's been a change in country you are interested in",
-          MessageTitle: 'SPAIN Travel Advice',
-          MessageBody: 'Storm warning',
-        },
-      ])
+      .post('/v1/send-to-group', [mockRequestPayload])
       .reply(400, {}, { content_type: 'application/json' });
 
     await expect(invoke([makeRecord()])).rejects.toThrow();
@@ -310,18 +308,7 @@ describe('Single Event', () => {
     });
 
     const unsScope = nock('http://uns.api')
-      .post('/v1/send-to-group', [
-        {
-          Namespace: 'travel',
-          Group: 'spain',
-          Subgroup: 'instant',
-          NotificationTitle: 'Travel Advice - SPAIN',
-          NotificationBody:
-            "There's been a change in country you are interested in",
-          MessageTitle: 'SPAIN Travel Advice',
-          MessageBody: 'Storm warning',
-        },
-      ])
+      .post('/v1/send-to-group', [mockRequestPayload])
       .reply(200, {}, { content_type: 'application/json' });
 
     await expect(invoke([makeRecord()])).rejects.toThrow();
