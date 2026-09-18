@@ -30,20 +30,33 @@ const recordHandler = async (record: DynamoDBRecord): Promise<void> => {
       const payload = getNotificationPayload(message, 'instant');
 
       if (payload) {
+        logger.info({
+          message: `Fetching SSM config`,
+        });
         const [apiUrl, certSecretArn, keySecretArn] = await Promise.all([
           getParameter(SsmParameters.UnsApiUrl),
           getParameter(SsmParameters.UnsMtlsCertArn),
           getParameter(SsmParameters.UnsMtlsKeyArn),
         ]);
 
+        logger.info({
+          message: `Fetching secret`,
+        });
         const apiKeySecretArn = process.env.UNS_API_KEY_ARN as string;
         const apiKey = await getSmmSecret(apiKeySecretArn);
 
+        logger.info({
+          message: `Building client`,
+        });
         const uns = await createUnsMtlsClientFromSecrets({
           apiUrl,
           certSecretArn,
           keySecretArn,
           apiKey,
+        });
+
+        logger.info({
+          message: `Sending request`,
         });
         const result = await uns.notification.sendToSubscribers([payload]);
         if (!result.ok) {
@@ -57,6 +70,9 @@ const recordHandler = async (record: DynamoDBRecord): Promise<void> => {
           throw new Error('UNS error');
         }
 
+        logger.info({
+          message: `Updating progress`,
+        });
         const tableName = process.env.EVENTS_TABLE_NAME;
         if (!tableName) {
           logger.error({
@@ -84,13 +100,20 @@ const recordHandler = async (record: DynamoDBRecord): Promise<void> => {
         message: error.message,
         schedule: 'INSTANT',
         record,
+        error,
       });
       throw error;
     }
   }
 };
 
-export const handler: DynamoDBStreamHandler = async (event, context) =>
-  processPartialResponse(event, recordHandler, processor, {
+export const handler: DynamoDBStreamHandler = async (event, context) => {
+  logger.info({
+    message: `Batch processing initialisation`,
+    event,
     context,
   });
+  return processPartialResponse(event, recordHandler, processor, {
+    context,
+  });
+};
