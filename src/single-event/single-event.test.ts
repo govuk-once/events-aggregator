@@ -1,11 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { Logger } from '@aws-lambda-powertools/logger';
+import { getSecret } from '@aws-lambda-powertools/parameters/secrets';
+import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import {
   Context,
   DynamoDBBatchResponse,
   DynamoDBRecord,
   DynamoDBStreamEvent,
 } from 'aws-lambda';
+import { mockClient } from 'aws-sdk-client-mock';
+import nock from 'nock';
 import {
   afterAll,
   afterEach,
@@ -16,11 +21,6 @@ import {
   vi,
 } from 'vitest';
 import { handler } from '.';
-import { getSecret } from '@aws-lambda-powertools/parameters/secrets';
-import { Logger } from '@aws-lambda-powertools/logger';
-import nock from 'nock';
-import { mockClient } from 'aws-sdk-client-mock';
-import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
 const dynamodbClient = mockClient(DynamoDBDocumentClient);
 
@@ -167,10 +167,12 @@ describe('Single Event', () => {
 
     await expect(invoke([makeRecord()])).rejects.toThrow();
 
-    expect(loggerErrorSpy).toHaveBeenCalledWith({
-      message: 'SSM Error',
-      schedule: 'INSTANT',
-    });
+    expect(loggerErrorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'SSM Error',
+        schedule: 'INSTANT',
+      }),
+    );
   });
 
   it('Should handle undefined parameters', async () => {
@@ -181,10 +183,12 @@ describe('Single Event', () => {
 
     await expect(invoke([makeRecord()])).rejects.toThrow();
 
-    expect(loggerErrorSpy).toHaveBeenCalledWith({
-      message: 'SSM parameter not found: /prefix/uns-api-url',
-      schedule: 'INSTANT',
-    });
+    expect(loggerErrorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'SSM parameter not found: /prefix/uns-api-url',
+        schedule: 'INSTANT',
+      }),
+    );
   });
 
   it('Should send a single event to uns', async () => {
@@ -248,20 +252,22 @@ describe('Single Event', () => {
 
     await expect(invoke([makeRecord()])).rejects.toThrow();
 
-    expect(loggerErrorSpy).toHaveBeenCalledWith({
-      compositeKey: 'travel/spain',
-      eventTimestamp: '2026-08-10T09:14:22.031Z',
-      message: 'Error from uns api',
-      result: {
-        error: {
-          body: {},
-          message: 'Bad Request',
-          status: 400,
+    expect(loggerErrorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        compositeKey: 'travel/spain',
+        eventTimestamp: '2026-08-10T09:14:22.031Z',
+        message: 'Error from uns api',
+        result: {
+          error: {
+            body: {},
+            message: 'Bad Request',
+            status: 400,
+          },
+          ok: false,
         },
-        ok: false,
-      },
-      schedule: 'INSTANT',
-    });
+        schedule: 'INSTANT',
+      }),
+    );
 
     unsScope.done();
   });
@@ -273,10 +279,12 @@ describe('Single Event', () => {
 
     await expect(invoke([makeRecord()])).rejects.toThrow();
 
-    expect(loggerErrorSpy).toHaveBeenCalledWith({
-      message: 'secret is empty or not a string: arn:uns-key',
-      schedule: 'INSTANT',
-    });
+    expect(loggerErrorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'secret is empty or not a string: arn:uns-key',
+        schedule: 'INSTANT',
+      }),
+    );
   });
 
   it('Should handle secret error', async () => {
@@ -284,10 +292,12 @@ describe('Single Event', () => {
 
     await expect(invoke([makeRecord()])).rejects.toThrow();
 
-    expect(loggerErrorSpy).toHaveBeenCalledWith({
-      message: 'Secret Error',
-      schedule: 'INSTANT',
-    });
+    expect(loggerErrorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Secret Error',
+        schedule: 'INSTANT',
+      }),
+    );
   });
 
   it('Should fail if tableName environment not set', async () => {
@@ -316,10 +326,12 @@ describe('Single Event', () => {
 
     await expect(invoke([makeRecord()])).rejects.toThrow();
 
-    expect(loggerErrorSpy).toHaveBeenCalledWith({
-      message: 'No table env passed',
-      schedule: 'INSTANT',
-    });
+    expect(loggerErrorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'No table env passed',
+        schedule: 'INSTANT',
+      }),
+    );
 
     unsScope.done();
   });
@@ -340,10 +352,12 @@ describe('Single Event', () => {
 
     await expect(invoke([makeRecord()])).rejects.toThrow();
 
-    expect(loggerErrorSpy).toHaveBeenCalledWith({
-      message: 'No event evt-1 / travel/spain to update',
-      schedule: 'INSTANT',
-    });
+    expect(loggerErrorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'No event evt-1 / travel/spain to update',
+        schedule: 'INSTANT',
+      }),
+    );
 
     unsScope.done();
   });

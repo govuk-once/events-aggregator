@@ -1,23 +1,27 @@
-import { Logger } from '@aws-lambda-powertools/logger';
-import { DynamoDBRecord, DynamoDBStreamHandler } from 'aws-lambda';
+import { DynamoEvent } from '@/types/event';
+import { getNotificationPayload, getSmmSecret } from '@/utils';
+import { updateEventStatus } from '@/utils/event';
+import { getParameter, SsmParameters } from '@/utils/ssm-client';
+import { createUnsMtlsClientFromSecrets } from '@/utils/uns-client';
 import {
   BatchProcessor,
   EventType,
   processPartialResponse,
 } from '@aws-lambda-powertools/batch';
-import { getParameter, SsmParameters } from '@/utils/ssm-client';
-import { getNotificationPayload, getSmmSecret } from '@/utils';
-import { createUnsMtlsClientFromSecrets } from '@/utils/uns-client';
-import { DynamoEvent } from '@/types/event';
-import { unmarshall } from '@aws-sdk/util-dynamodb';
+import { Logger } from '@aws-lambda-powertools/logger';
 import { AttributeValue } from '@aws-sdk/client-dynamodb';
-import { updateEventStatus } from '@/utils/event';
+import { unmarshall } from '@aws-sdk/util-dynamodb';
+import { DynamoDBRecord, DynamoDBStreamHandler } from 'aws-lambda';
 
 const processor = new BatchProcessor(EventType.DynamoDBStreams); // (1)!
 const logger = new Logger();
 
 const recordHandler = async (record: DynamoDBRecord): Promise<void> => {
   try {
+    logger.info({
+      message: `Request received`,
+      record,
+    });
     if (record.dynamodb && record.dynamodb.NewImage) {
       const message = unmarshall(
         record.dynamodb.NewImage as Record<string, AttributeValue>,
@@ -79,6 +83,7 @@ const recordHandler = async (record: DynamoDBRecord): Promise<void> => {
       logger.error({
         message: error.message,
         schedule: 'INSTANT',
+        record,
       });
       throw error;
     }
