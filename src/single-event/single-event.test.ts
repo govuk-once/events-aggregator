@@ -143,7 +143,7 @@ const mockRequestPayload = {
     'Storm warning\n' +
     '\n' +
     'Time updated:\n' +
-    '2026-08-10T09:14:22.031Z\n' +
+    '10:14am, 10th August 2026 (BST)\n' +
     '\n' +
     '[Storm warning](Manage your countries)',
   DeeplinkURL: `govuk://app.gov.uk/topics/travel-abroad`,
