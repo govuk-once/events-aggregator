@@ -133,9 +133,9 @@ const mockRequestPayload = {
   Namespace: 'travel',
   Group: 'spain',
   Subgroup: 'instant',
-  NotificationTitle: 'SPAIN: Travel advice alert',
+  NotificationTitle: 'Spain: Travel advice alert',
   NotificationBody: "There's been a change in country you are interested in",
-  MessageTitle: 'SPAIN: Travel advice alert',
+  MessageTitle: 'Spain: Travel advice alert',
   MessageBody:
     '[govuk://travel/spain)](Go to latest)\n' +
     '\n' +

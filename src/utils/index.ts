@@ -127,6 +127,13 @@ export const getFormattedDate = (iso8601Timestamp: string) => {
   return `${parts.hour}:${parts.minute}${period}, ${dayNum}${suffix} ${parts.month} ${parts.year} (${tz})`;
 };
 
+const titleCase = (str: string) =>
+  str
+    .toLowerCase()
+    .split(/([ -])/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join('');
+
 export const getNotificationPayload = (
   dbEntry: DynamoEvent,
   schedule: Frequency,
@@ -139,9 +146,9 @@ export const getNotificationPayload = (
     Namespace: dbEntry.namespace,
     Group: dbEntry.group,
     Subgroup: schedule,
-    NotificationTitle: `${dbEntry.group?.toLocaleUpperCase()}: Travel advice alert`,
+    NotificationTitle: `${titleCase(dbEntry.group)}: Travel advice alert`,
     NotificationBody: `There's been a change in country you are interested in`,
-    MessageTitle: `${dbEntry.group?.toLocaleUpperCase()}: Travel advice alert`,
+    MessageTitle: `${titleCase(dbEntry.group)}: Travel advice alert`,
     MessageBody: segments(
       link(`Go to latest`, `govuk://travel/${dbEntry.group})`),
       lines(`Changes made:`, dbEntry.eventNote),
