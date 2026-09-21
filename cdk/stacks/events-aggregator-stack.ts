@@ -316,7 +316,7 @@ export class EventsAggregatorStack extends cdk.Stack {
           UNS_API_KEY_ARN: unsApiKeySecret.secretArn,
           POWERTOOLS_SERVICE_NAME: 'events-aggregator-single-event',
           POWERTOOLS_METRICS_NAMESPACE: 'EventsAggregator',
-          EVENT_STORE_TABLE_NAME: eventStoreTable.tableName,
+          EVENTS_STORE_TABLE_NAME: eventStoreTable.tableName,
         },
         retentionDays: logs.RetentionDays.ONE_WEEK,
         runtime: cdk.aws_lambda.Runtime.NODEJS_LATEST,
@@ -383,7 +383,7 @@ export class EventsAggregatorStack extends cdk.Stack {
         environment: {
           SSM_PREFIX: this.sharedNamespace,
           UNS_API_KEY_ARN: unsApiKeySecret.secretArn,
-          EVENT_STORE_TABLE_NAME: this.eventStoreTable.table.tableName,
+          EVENTS_STORE_TABLE_NAME: this.eventStoreTable.table.tableName,
           POWERTOOLS_SERVICE_NAME: 'events-aggregator-aggregated-event',
           POWERTOOLS_METRICS_NAMESPACE: 'EventsAggregator',
         },
