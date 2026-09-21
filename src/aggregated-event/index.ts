@@ -275,6 +275,7 @@ export const handler = async (event: DigestScheduleEvent): Promise<boolean> => {
         triggeredAt,
         cadence,
         error: result.error,
+        result,
       });
 
       throw new Error(

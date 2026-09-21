@@ -126,6 +126,7 @@ const toApiResult = async <T>(
     res,
     body,
   });
+
   return res.ok
     ? { ok: true, status: res.status, data: body as T }
     : {
@@ -163,6 +164,12 @@ export const createUnsMtlsClient = (config: MtlsClientConfig) => {
   };
 
   const send = <T>(path: string, init: RequestInit): Promise<ApiResult<T>> => {
+    logger.info(`Sending request`, {
+      path: path,
+      method: init.method,
+      requestBody: init.body?.toString(),
+    });
+
     const requestInit: FetchInit = {
       ...init,
       headers: {
