@@ -270,30 +270,7 @@ export class EventsAggregatorStack extends cdk.Stack {
       travelIngestionLambda,
     );
 
-    const singleEventLambda = this.lambdaFactory.createLambda(
-      'SingleEventLambda',
-      {
-        code: lambda.Code.fromAsset(join(__dirname, '../../dist/single-event')),
-        codeSigningConfig,
-        description: 'sends a single event to UNS',
-        duration: 10,
-        key: logKey,
-        handler: 'index.handler',
-        memorySize: 128,
-        name: 'single-event',
-        environment: {
-          SSM_PREFIX: this.sharedNamespace,
-          UNS_API_KEY_ARN: unsApiKeySecret.secretArn,
-          POWERTOOLS_SERVICE_NAME: 'events-aggregator-single-event',
-          POWERTOOLS_METRICS_NAMESPACE: 'EventsAggregator',
-        },
-        retentionDays: logs.RetentionDays.ONE_WEEK,
-        runtime: cdk.aws_lambda.Runtime.NODEJS_LATEST,
-        skipCheckovRule: 'CKV_AWS_59',
-      },
-    );
-
-    this.eventStoreTable = this.dynamoFactory.createTableWithStream(
+    const { table: eventStoreTable } = this.dynamoFactory.createTableWithStream(
       'EventStoreTable',
       {
         name: constants.TABLE_NAME_VARIABLE,
@@ -320,11 +297,39 @@ export class EventsAggregatorStack extends cdk.Stack {
         removalPolicy: isEphemeralEnvironment()
           ? cdk.RemovalPolicy.DESTROY
           : cdk.RemovalPolicy.RETAIN,
-        streamConsumer: {
-          streamFunction: singleEventLambda,
-        },
       },
     );
+
+    const singleEventLambda = this.lambdaFactory.createLambda(
+      'SingleEventLambda',
+      {
+        code: lambda.Code.fromAsset(join(__dirname, '../../dist/single-event')),
+        codeSigningConfig,
+        description: 'sends a single event to UNS',
+        duration: 10,
+        key: logKey,
+        handler: 'index.handler',
+        memorySize: 128,
+        name: 'single-event',
+        environment: {
+          SSM_PREFIX: this.sharedNamespace,
+          UNS_API_KEY_ARN: unsApiKeySecret.secretArn,
+          POWERTOOLS_SERVICE_NAME: 'events-aggregator-single-event',
+          POWERTOOLS_METRICS_NAMESPACE: 'EventsAggregator',
+          EVENT_STORE_TABLE_NAME: eventStoreTable.tableName,
+        },
+        retentionDays: logs.RetentionDays.ONE_WEEK,
+        runtime: cdk.aws_lambda.Runtime.NODEJS_LATEST,
+        skipCheckovRule: 'CKV_AWS_59',
+      },
+    );
+
+    this.eventStoreTable = {
+      table: eventStoreTable,
+      eventSource: this.dynamoFactory.addStreamConsumer(eventStoreTable, {
+        streamFunction: singleEventLambda,
+      }),
+    };
 
     this.grantUnsAccess(singleEventLambda, {
       certArn: certSecret,
