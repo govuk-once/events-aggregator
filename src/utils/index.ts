@@ -85,18 +85,77 @@ export const getStartTime = (
 type InstantSchedule = 'instant';
 type Frequency = ScheduleFrequency | InstantSchedule;
 
+export const getFormattedDate = (iso8601Timestamp: string) => {
+  function getOrdinalSuffix(day: number): string {
+    if (day > 3 && day < 21) return 'th';
+    switch (day % 10) {
+      case 1:
+        return 'st';
+      case 2:
+        return 'nd';
+      case 3:
+        return 'rd';
+      default:
+        return 'th';
+    }
+  }
+
+  const date = new Date(iso8601Timestamp);
+
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZoneName: 'short',
+  });
+
+  const parts = Object.fromEntries(
+    formatter.formatToParts(date).map((p) => [p.type, p.value]),
+  );
+
+  const dayNum = parseInt(parts.day, 10);
+  const suffix = getOrdinalSuffix(dayNum);
+  const period = parts.dayPeriod
+    ? parts.dayPeriod.toLowerCase().replace(/[^a-z]/g, '')
+    : '';
+  const tz = parts.timeZoneName === 'BST' ? 'BST' : 'GMT';
+
+  return `${parts.hour}:${parts.minute}${period}, ${dayNum}${suffix} ${parts.month} ${parts.year} (${tz})`;
+};
+
+const titleCase = (str: string) =>
+  str
+    .toLowerCase()
+    .split(/([ -])/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join('');
+
 export const getNotificationPayload = (
   dbEntry: DynamoEvent,
   schedule: Frequency,
 ): NotificationPayload | null => {
+  const lines = (...lines: string[]) => lines.join(`\n`);
+  const segments = (...segments: string[]) => segments.join(`\n\n`);
+  const link = (url: string, label: string) => `[${label}](${url})`;
+
   return {
     Namespace: dbEntry.namespace,
     Group: dbEntry.group,
     Subgroup: schedule,
-    NotificationTitle: `Travel Advice - ${dbEntry.group?.toLocaleUpperCase()}`,
+    NotificationTitle: `${titleCase(dbEntry.group)}: Travel advice alert`,
     NotificationBody: `There's been a change in country you are interested in`,
-    MessageTitle: `${dbEntry.group?.toLocaleUpperCase()} Travel Advice`,
-    MessageBody: dbEntry.eventNote,
+    MessageTitle: `${titleCase(dbEntry.group)}: Travel advice alert`,
+    MessageBody: segments(
+      link(`Go to latest`, `govuk://travel/${dbEntry.group})`),
+      lines(`Changes made:`, dbEntry.eventNote),
+      lines(`Time updated:`, getFormattedDate(dbEntry.eventTimestamp)),
+      link(`Manage your countries`, dbEntry.eventNote),
+    ),
+    DeeplinkURL: `govuk://app.gov.uk/topics/travel-abroad`,
   };
 };
 

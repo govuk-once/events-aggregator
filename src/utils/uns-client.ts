@@ -1,7 +1,10 @@
 import type { FetchInit, NotificationPayload } from '@/types';
+import { Logger } from '@aws-lambda-powertools/logger';
 import { getSecret } from '@aws-lambda-powertools/parameters/secrets';
 import { createHash } from 'node:crypto';
 import { Agent } from 'undici';
+
+const logger = new Logger();
 
 // ---------------------------------------------------------------------------
 // Types
@@ -118,6 +121,12 @@ const toApiResult = async <T>(
   const res = await request;
   const body = await parseBody(res);
 
+  logger.info({
+    message: `Parsing API Result`,
+    res,
+    body,
+  });
+
   return res.ok
     ? { ok: true, status: res.status, data: body as T }
     : {
@@ -143,6 +152,9 @@ const toApiResult = async <T>(
  * configured client certificate; no AWS credentials or role assumption involved.
  */
 export const createUnsMtlsClient = (config: MtlsClientConfig) => {
+  logger.info({
+    message: `Initialising client`,
+  });
   const dispatcher = getAgent(config);
 
   const defaultHeaders: Record<string, string> = {
@@ -152,6 +164,12 @@ export const createUnsMtlsClient = (config: MtlsClientConfig) => {
   };
 
   const send = <T>(path: string, init: RequestInit): Promise<ApiResult<T>> => {
+    logger.info(`Sending request`, {
+      path: path,
+      method: init.method,
+      requestBody: init.body?.toString(),
+    });
+
     const requestInit: FetchInit = {
       ...init,
       headers: {
@@ -164,6 +182,9 @@ export const createUnsMtlsClient = (config: MtlsClientConfig) => {
     return toApiResult(fetch(`${config.apiUrl}${path}`, requestInit));
   };
 
+  logger.info({
+    message: `Client initialisation completed`,
+  });
   return {
     notification: {
       sendToSubscribers: (

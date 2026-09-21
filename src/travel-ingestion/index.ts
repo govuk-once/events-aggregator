@@ -99,9 +99,18 @@ const processSource = async (
 };
 
 export const handler = async (event: TravelAlertScheduleEvent) => {
+  logger.info({
+    message: `Request received`,
+    event,
+  });
   try {
     const startTime = getStartTime(event.triggeredAt, event.schedule);
     const context = scheduleContext(event, startTime);
+    logger.info({
+      message: `Preparing query`,
+      context,
+      startTime,
+    });
     const travelChanges = await segment(
       tracer,
       'GetTravelChanges',
@@ -111,6 +120,10 @@ export const handler = async (event: TravelAlertScheduleEvent) => {
         return getTravelChangesSince(startTime);
       },
     );
+    logger.info({
+      message: `Retrieved changes`,
+      travelChanges,
+    });
 
     const resultCount = travelChanges.results.length;
 

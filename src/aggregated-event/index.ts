@@ -1,15 +1,15 @@
+import { MetricUnit } from '@aws-lambda-powertools/metrics';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
   DynamoDBDocumentClient,
   QueryCommand,
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
-import { MetricUnit } from '@aws-lambda-powertools/metrics';
 
 import type { NotificationPayload } from '@/types';
 import type {
-  DigestScheduleEvent,
   DigestCadence,
+  DigestScheduleEvent,
   DynamoEvent,
 } from '@/types/event';
 import { getSmmSecret } from '@/utils';
@@ -177,6 +177,10 @@ export const markEventProcessed = async (
 };
 
 export const handler = async (event: DigestScheduleEvent): Promise<boolean> => {
+  logger.info({
+    message: `Request received`,
+    event,
+  });
   const { triggeredAt, schedule } = event;
 
   try {
@@ -271,6 +275,7 @@ export const handler = async (event: DigestScheduleEvent): Promise<boolean> => {
         triggeredAt,
         cadence,
         error: result.error,
+        result,
       });
 
       throw new Error(
