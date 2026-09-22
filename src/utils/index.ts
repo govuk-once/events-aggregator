@@ -140,7 +140,7 @@ export const getNotificationPayload = (
 ): NotificationPayload | null => {
   const lines = (...lines: string[]) => lines.join(`\n`);
   const segments = (...segments: string[]) => segments.join(`\n\n`);
-  const link = (url: string, label: string) => `[${label}](${url})`;
+  const link = (url: string, label: string) => `[${url}](${label})`;
 
   return {
     Namespace: dbEntry.namespace,

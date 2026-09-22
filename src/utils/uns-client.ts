@@ -215,7 +215,8 @@ export type UnsMtlsClient = ReturnType<typeof createUnsMtlsClient>;
  * it has been round-tripped through JSON). Normalise those back to real newlines
  * — `crypto` rejects a PEM whose armour is not newline-delimited.
  */
-const normalisePem = (pem: string): string => pem.replace(/\\n/g, '\n').trim();
+const normalisePem = (pem: string): string =>
+  pem.replaceAll(/\\n/g, '\n').trim();
 
 /**
  * Read one secret as a raw PEM string. `maxAge` caches the value for 10 minutes
