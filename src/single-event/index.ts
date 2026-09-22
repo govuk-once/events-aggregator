@@ -22,9 +22,9 @@ const recordHandler = async (record: DynamoDBRecord): Promise<void> => {
       message: `Request received`,
       record,
     });
-    if (record.eventName == 'MODIFY' || record.eventName == 'REMOVE') {
+    if (record.eventName == 'REMOVE') {
       logger.info({
-        message: `Request ignored - we do not need to handle MODIFY or REMOVE calls`,
+        message: `Request ignored - we do not handle REMOVE calls`,
         record,
       });
       return;
