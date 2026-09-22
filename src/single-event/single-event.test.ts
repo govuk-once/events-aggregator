@@ -27,7 +27,7 @@ const dynamodbClient = mockClient(DynamoDBDocumentClient);
 vi.stubEnv('UNS_API_URL', 'http://uns.api');
 vi.stubEnv('UNS_API_KEY_ARN', 'arn:uns-key');
 vi.stubEnv('SSM_PREFIX', 'prefix');
-vi.stubEnv('EVENTS_TABLE_NAME', 'event-table');
+vi.stubEnv('EVENTS_STORE_TABLE_NAME', 'event-table');
 const { sendMock } = vi.hoisted(() => ({
   sendMock: vi.fn(),
 }));
@@ -299,7 +299,7 @@ describe('Single Event', () => {
   });
 
   it('Should fail if tableName environment not set', async () => {
-    vi.stubEnv('EVENTS_TABLE_NAME', undefined);
+    vi.stubEnv('EVENTS_STORE_TABLE_NAME', undefined);
 
     mockGetSecret.mockResolvedValue('-----BEGIN');
 
@@ -324,7 +324,7 @@ describe('Single Event', () => {
   });
 
   it('Should fail the record if the status update fails', async () => {
-    vi.stubEnv('EVENTS_TABLE_NAME', 'events-table');
+    vi.stubEnv('EVENTS_STORE_TABLE_NAME', 'events-table');
 
     sendMock.mockResolvedValueOnce(mockParams);
     mockGetSecret.mockResolvedValue('-----BEGIN');
