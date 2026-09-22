@@ -80,7 +80,7 @@ const recordHandler = async (record: DynamoDBRecord): Promise<void> => {
         logger.info({
           message: `Updating progress`,
         });
-        const tableName = process.env.EVENTS_TABLE_NAME;
+        const tableName = process.env.EVENTS_STORE_TABLE_NAME;
         if (!tableName) {
           logger.error({
             message: `No table env`,

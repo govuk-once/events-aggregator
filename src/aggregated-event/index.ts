@@ -189,7 +189,7 @@ export const handler = async (event: DigestScheduleEvent): Promise<boolean> => {
     }
 
     const cadence: DigestCadence = schedule;
-    const tableName = process.env.EVENT_STORE_TABLE_NAME as string;
+    const tableName = process.env.EVENTS_STORE_TABLE_NAME as string;
 
     const startTime = getDigestStartTime(triggeredAt, cadence);
 
