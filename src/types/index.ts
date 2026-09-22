@@ -50,6 +50,7 @@ export type NotificationPayload = {
 export type TravelAlertScheduleEvent = {
   triggeredAt: string;
   schedule: ScheduleFrequency;
+  debugSuffix?: string;
 };
 
 export interface ConsumerConfig {

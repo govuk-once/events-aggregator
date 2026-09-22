@@ -27,10 +27,12 @@ type EventSource = Awaited<
 const scheduleContext = (
   event: TravelAlertScheduleEvent,
   startTime: StartTime,
+  debugSuffix?: string,
 ) => ({
   triggeredAt: event.triggeredAt,
   schedule: event.schedule,
   startTime,
+  debugSuffix,
 });
 
 type ScheduleContext = ReturnType<typeof scheduleContext>;
@@ -58,6 +60,11 @@ const publishCountryChanges = async (
 ): Promise<void> => {
   for (const change of changes) {
     const incomingEvent = travelEventToIncomingEvent(change, countryDetails);
+    logger.info(`Publishing event`, {
+      country: incomingEvent.group,
+      note: change.note,
+      timestamp: change.public_timestamp,
+    });
     await sendIncomingEventToQueue(
       incomingEvent,
       process.env.INCOMING_EVENTS_QUEUE_URL as string,
@@ -88,7 +95,16 @@ const processSource = async (
   await segment(tracer, 'PublishCountryChanges', async (subsegment) => {
     subsegment.addAnnotation('EventCount', countryChanges.length);
 
-    await publishCountryChanges(countryChanges, country.details);
+    await publishCountryChanges(
+      countryChanges.map((change) => {
+        // If debugSuffix is set within the event - append that to the message content - to be use in testing only
+        change.note = context.debugSuffix
+          ? `${change.note}${context.debugSuffix}`
+          : change.note;
+        return change;
+      }),
+      country.details,
+    );
   });
 
   metrics.addMetric(
@@ -105,7 +121,8 @@ export const handler = async (event: TravelAlertScheduleEvent) => {
   });
   try {
     const startTime = getStartTime(event.triggeredAt, event.schedule);
-    const context = scheduleContext(event, startTime);
+    const context = scheduleContext(event, startTime, event.debugSuffix);
+
     logger.info({
       message: `Preparing query`,
       context,

@@ -137,7 +137,7 @@ const mockRequestPayload = {
   NotificationBody: "There's been a change in country you are interested in",
   MessageTitle: 'Spain: Travel advice alert',
   MessageBody:
-    '[govuk://travel/spain)](Go to latest)\n' +
+    '[govuk://app.gov.uk/web?url=https://www.gov.uk/foreign-travel-advice/spain](Go to latest)\n' +
     '\n' +
     'Changes made:\n' +
     'Storm warning\n' +
@@ -145,8 +145,8 @@ const mockRequestPayload = {
     'Time updated:\n' +
     '10:14am, 10th August 2026 (BST)\n' +
     '\n' +
-    '[Storm warning](Manage your countries)',
-  DeeplinkURL: `govuk://app.gov.uk/topics/travel-abroad`,
+    '[govuk://app.gov.uk/travelalerts/edit](Manage your countries)',
+  DeeplinkURL: `govuk://app.gov.uk/web?url=https://www.gov.uk/foreign-travel-advice/spain`,
 };
 
 const invoke = async (

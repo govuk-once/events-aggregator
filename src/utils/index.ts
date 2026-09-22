@@ -150,12 +150,15 @@ export const getNotificationPayload = (
     NotificationBody: `There's been a change in country you are interested in`,
     MessageTitle: `${titleCase(dbEntry.group)}: Travel advice alert`,
     MessageBody: segments(
-      link(`Go to latest`, `govuk://travel/${dbEntry.group})`),
+      link(
+        `Go to latest`,
+        `govuk://app.gov.uk/web?url=https://www.gov.uk/foreign-travel-advice/${dbEntry.group}`,
+      ),
       lines(`Changes made:`, dbEntry.eventNote),
       lines(`Time updated:`, getFormattedDate(dbEntry.eventTimestamp)),
-      link(`Manage your countries`, dbEntry.eventNote),
+      link(`Manage your countries`, `govuk://app.gov.uk/travelalerts/edit`),
     ),
-    DeeplinkURL: `govuk://app.gov.uk/topics/travel-abroad`,
+    DeeplinkURL: `govuk://app.gov.uk/web?url=https://www.gov.uk/foreign-travel-advice/${dbEntry.group}`,
   };
 };
 
