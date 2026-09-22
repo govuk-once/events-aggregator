@@ -252,7 +252,7 @@ export class EventsAggregatorStack extends cdk.Stack {
           POWERTOOLS_METRICS_NAMESPACE: 'EventsAggregator',
         },
         retentionDays: logs.RetentionDays.ONE_WEEK,
-        runtime: cdk.aws_lambda.Runtime.NODEJS_LATEST,
+        runtime: cdk.aws_lambda.Runtime.NODEJS_24_X,
         skipCheckovRule: 'CKV_AWS_59',
       },
     );
@@ -319,7 +319,7 @@ export class EventsAggregatorStack extends cdk.Stack {
           EVENT_STORE_TABLE_NAME: eventStoreTable.tableName,
         },
         retentionDays: logs.RetentionDays.ONE_WEEK,
-        runtime: cdk.aws_lambda.Runtime.NODEJS_LATEST,
+        runtime: cdk.aws_lambda.Runtime.NODEJS_24_X,
         skipCheckovRule: 'CKV_AWS_59',
       },
     );
@@ -331,6 +331,7 @@ export class EventsAggregatorStack extends cdk.Stack {
       }),
     };
 
+    this.grantTableAccess(singleEventLambda, 'write');
     this.grantUnsAccess(singleEventLambda, {
       certArn: certSecret,
       keyArn: keySecret,
@@ -352,7 +353,7 @@ export class EventsAggregatorStack extends cdk.Stack {
         memorySize: 128,
         name: 'eventProcessing',
         retentionDays: logs.RetentionDays.ONE_WEEK,
-        runtime: cdk.aws_lambda.Runtime.NODEJS_LATEST,
+        runtime: cdk.aws_lambda.Runtime.NODEJS_24_X,
         skipCheckovRule: 'CKV_AWS_59',
       },
     );
@@ -388,7 +389,7 @@ export class EventsAggregatorStack extends cdk.Stack {
           POWERTOOLS_METRICS_NAMESPACE: 'EventsAggregator',
         },
         retentionDays: logs.RetentionDays.ONE_WEEK,
-        runtime: cdk.aws_lambda.Runtime.NODEJS_LATEST,
+        runtime: cdk.aws_lambda.Runtime.NODEJS_24_X,
         skipCheckovRule: 'CKV_AWS_59',
       },
     );
