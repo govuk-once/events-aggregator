@@ -82,7 +82,7 @@ export const getStartTime = (
   return date.toISOString();
 };
 
-type InstantSchedule = 'instant';
+type InstantSchedule = 'instant' | 'none';
 type Frequency = ScheduleFrequency | InstantSchedule;
 
 export const getFormattedDate = (iso8601Timestamp: string) => {
