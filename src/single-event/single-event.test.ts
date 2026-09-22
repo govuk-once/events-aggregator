@@ -129,25 +129,48 @@ const makeRecord = (
   },
 });
 
-const mockRequestPayload = {
-  Namespace: 'travel',
-  Group: 'spain',
-  Subgroup: 'instant',
-  NotificationTitle: 'Spain: Travel advice alert',
-  NotificationBody: "There's been a change in country you are interested in",
-  MessageTitle: 'Spain: Travel advice alert',
-  MessageBody:
-    '[Go to latest](govuk://app.gov.uk/web?url=https://www.gov.uk/foreign-travel-advice/spain)\n' +
-    '\n' +
-    'Changes made:\n' +
-    'Storm warning\n' +
-    '\n' +
-    'Time updated:\n' +
-    '10:14am, 10th August 2026 (BST)\n' +
-    '\n' +
-    '[Manage your countries](govuk://app.gov.uk/travelalerts/edit)',
-  DeeplinkURL: `govuk://app.gov.uk/web?url=https://www.gov.uk/foreign-travel-advice/spain`,
-};
+const mockRequestPayload = [
+  {
+    Namespace: 'travel',
+    Group: 'spain',
+    Subgroup: 'instant',
+    NotificationTitle: 'Spain: Travel advice alert',
+    NotificationBody: "There's been a change in country you are interested in",
+    MessageTitle: 'Spain: Travel advice alert',
+    MessageBody:
+      '[Go to latest](govuk://app.gov.uk/web?url=https://www.gov.uk/foreign-travel-advice/spain)\n' +
+      '\n' +
+      'Changes made:\n' +
+      'Storm warning\n' +
+      '\n' +
+      'Time updated:\n' +
+      '10:14am, 10th August 2026 (BST)\n' +
+      '\n' +
+      '[Manage your countries](govuk://app.gov.uk/travelalerts/edit)',
+    DeeplinkURL: `govuk://app.gov.uk/web?url=https://www.gov.uk/foreign-travel-advice/spain`,
+    Channel: 'PUSH_NOTIFICATION_AND_MESSAGE_CENTRE',
+  },
+  {
+    Namespace: 'travel',
+    Group: 'spain',
+    Subgroup: 'instant',
+    NotificationTitle: 'Spain: Travel advice alert',
+    NotificationBody: "There's been a change in country you are interested in",
+    MessageTitle: 'Spain: Travel advice alert',
+    MessageBody:
+      '[Go to latest](govuk://app.gov.uk/web?url=https://www.gov.uk/foreign-travel-advice/spain)\n' +
+      '\n' +
+      'Changes made:\n' +
+      'Storm warning\n' +
+      '\n' +
+      'Time updated:\n' +
+      '10:14am, 10th August 2026 (BST)\n' +
+      '\n' +
+      '[Manage your countries](govuk://app.gov.uk/travelalerts/edit)',
+    DeeplinkURL: `govuk://app.gov.uk/web?url=https://www.gov.uk/foreign-travel-advice/spain`,
+    Channel: 'MESSAGE_CENTRE_ONLY',
+  },
+];
 
 const invoke = async (
   records: DynamoDBRecord[],
@@ -221,7 +244,7 @@ describe('Single Event', () => {
     });
 
     const unsScope = nock('http://uns.api')
-      .post('/v1/send-to-group', [mockRequestPayload])
+      .post('/v1/send-to-group', mockRequestPayload)
       .reply(200, {}, { content_type: 'application/json' });
 
     const response = await invoke([makeRecord()]);
@@ -245,7 +268,7 @@ describe('Single Event', () => {
     mockGetSecret.mockResolvedValue('-----BEGIN');
 
     const unsScope = nock('http://uns.api')
-      .post('/v1/send-to-group', [mockRequestPayload])
+      .post('/v1/send-to-group', mockRequestPayload)
       .reply(400, {}, { content_type: 'application/json' });
 
     await expect(invoke([makeRecord()])).rejects.toThrow();
@@ -308,7 +331,7 @@ describe('Single Event', () => {
     });
 
     const unsScope = nock('http://uns.api')
-      .post('/v1/send-to-group', [mockRequestPayload])
+      .post('/v1/send-to-group', mockRequestPayload)
       .reply(200, {}, { content_type: 'application/json' });
 
     await expect(invoke([makeRecord()])).rejects.toThrow();

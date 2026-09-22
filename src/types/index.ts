@@ -45,6 +45,7 @@ export type NotificationPayload = {
   MessageTitle: string;
   MessageBody: string;
   DeeplinkURL?: string;
+  Channel?: 'PUSH_NOTIFICATION_AND_MESSAGE_CENTRE' | 'MESSAGE_CENTRE_ONLY';
 };
 
 export type TravelAlertScheduleEvent = {

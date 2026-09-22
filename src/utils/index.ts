@@ -137,7 +137,8 @@ const titleCase = (str: string) =>
 export const getNotificationPayload = (
   dbEntry: DynamoEvent,
   schedule: Frequency,
-): NotificationPayload | null => {
+  channel: 'PUSH_NOTIFICATION_AND_MESSAGE_CENTRE' | 'MESSAGE_CENTRE_ONLY',
+): NotificationPayload => {
   const lines = (...lines: string[]) => lines.join(`\n`);
   const segments = (...segments: string[]) => segments.join(`\n\n`);
   const link = (url: string, label: string) => `[${url}](${label})`;
@@ -159,6 +160,7 @@ export const getNotificationPayload = (
       link(`Manage your countries`, `govuk://app.gov.uk/travelalerts/edit`),
     ),
     DeeplinkURL: `govuk://app.gov.uk/web?url=https://www.gov.uk/foreign-travel-advice/${dbEntry.group}`,
+    Channel: channel,
   };
 };
 

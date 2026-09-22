@@ -34,72 +34,77 @@ const recordHandler = async (record: DynamoDBRecord): Promise<void> => {
         record.dynamodb.NewImage as Record<string, AttributeValue>,
       ) as DynamoEvent;
 
-      const payload = getNotificationPayload(message, 'instant');
+      const payload = [
+        getNotificationPayload(
+          message,
+          'instant',
+          'PUSH_NOTIFICATION_AND_MESSAGE_CENTRE',
+        ),
+        getNotificationPayload(message, 'instant', 'MESSAGE_CENTRE_ONLY'),
+      ];
 
-      if (payload) {
-        logger.info({
-          message: `Fetching SSM config`,
-        });
-        const [apiUrl, certSecretArn, keySecretArn] = await Promise.all([
-          getParameter(SsmParameters.UnsApiUrl),
-          getParameter(SsmParameters.UnsMtlsCertArn),
-          getParameter(SsmParameters.UnsMtlsKeyArn),
-        ]);
+      logger.info({
+        message: `Fetching SSM config`,
+      });
+      const [apiUrl, certSecretArn, keySecretArn] = await Promise.all([
+        getParameter(SsmParameters.UnsApiUrl),
+        getParameter(SsmParameters.UnsMtlsCertArn),
+        getParameter(SsmParameters.UnsMtlsKeyArn),
+      ]);
 
-        logger.info({
-          message: `Fetching secret`,
-        });
-        const apiKeySecretArn = process.env.UNS_API_KEY_ARN as string;
-        const apiKey = await getSmmSecret(apiKeySecretArn);
+      logger.info({
+        message: `Fetching secret`,
+      });
+      const apiKeySecretArn = process.env.UNS_API_KEY_ARN as string;
+      const apiKey = await getSmmSecret(apiKeySecretArn);
 
-        logger.info({
-          message: `Building client`,
-        });
-        const uns = await createUnsMtlsClientFromSecrets({
-          apiUrl,
-          certSecretArn,
-          keySecretArn,
-          apiKey,
-        });
+      logger.info({
+        message: `Building client`,
+      });
+      const uns = await createUnsMtlsClientFromSecrets({
+        apiUrl,
+        certSecretArn,
+        keySecretArn,
+        apiKey,
+      });
 
-        logger.info({
-          message: `Sending request`,
+      logger.info({
+        message: `Sending request`,
+      });
+      const result = await uns.notification.sendToSubscribers(payload);
+      if (!result.ok) {
+        logger.error({
+          message: `Error from uns api`,
+          result: result,
+          eventTimestamp: message.eventTimestamp,
+          compositeKey: message.compositeKey,
+          schedule: 'INSTANT',
         });
-        const result = await uns.notification.sendToSubscribers([payload]);
-        if (!result.ok) {
-          logger.error({
-            message: `Error from uns api`,
-            result: result,
-            eventTimestamp: message.eventTimestamp,
-            compositeKey: message.compositeKey,
-            schedule: 'INSTANT',
-          });
-          throw new Error('UNS error');
-        }
-
-        logger.info({
-          message: `Updating progress`,
-        });
-        const tableName = process.env.EVENTS_STORE_TABLE_NAME;
-        if (!tableName) {
-          logger.error({
-            message: `No table env`,
-            eventTimestamp: message.eventTimestamp,
-            compositeKey: message.compositeKey,
-            schedule: 'INSTANT',
-          });
-          throw new Error('No table env passed');
-        }
-
-        await updateEventStatus(
-          tableName,
-          {
-            eventID: message.eventID,
-            compositeKey: message.compositeKey,
-          },
-          { instant: message.eventTimestamp },
-        );
+        throw new Error('UNS error');
       }
+
+      logger.info({
+        message: `Updating progress`,
+      });
+      const tableName = process.env.EVENTS_STORE_TABLE_NAME;
+      if (!tableName) {
+        logger.error({
+          message: `No table env`,
+          eventTimestamp: message.eventTimestamp,
+          compositeKey: message.compositeKey,
+          schedule: 'INSTANT',
+        });
+        throw new Error('No table env passed');
+      }
+
+      await updateEventStatus(
+        tableName,
+        {
+          eventID: message.eventID,
+          compositeKey: message.compositeKey,
+        },
+        { instant: message.eventTimestamp },
+      );
     }
   } catch (error) {
     if (error instanceof Error) {
