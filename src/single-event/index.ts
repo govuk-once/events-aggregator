@@ -40,7 +40,7 @@ const recordHandler = async (record: DynamoDBRecord): Promise<void> => {
           'instant',
           'PUSH_NOTIFICATION_AND_MESSAGE_CENTRE',
         ),
-        getNotificationPayload(message, 'instant', 'MESSAGE_CENTRE_ONLY'),
+        getNotificationPayload(message, 'none', 'MESSAGE_CENTRE_ONLY'),
       ];
 
       logger.info({

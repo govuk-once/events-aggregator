@@ -153,7 +153,7 @@ const mockRequestPayload = [
   {
     Namespace: 'travel',
     Group: 'spain',
-    Subgroup: 'instant',
+    Subgroup: 'none',
     NotificationTitle: 'Spain: Travel advice alert',
     NotificationBody: "There's been a change in country you are interested in",
     MessageTitle: 'Spain: Travel advice alert',
