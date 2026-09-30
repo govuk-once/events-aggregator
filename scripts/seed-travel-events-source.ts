@@ -1,15 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { DescribeTableCommand, DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import {
+  BatchGetCommand,
+  DynamoDBDocumentClient,
+  PutCommand,
+  ScanCommand,
+  UpdateCommand,
+} from '@aws-sdk/lib-dynamodb';
 import { basename } from 'node:path';
 import { parseArgs } from 'node:util';
 import { v5 as uuidv5 } from 'uuid';
-import { DynamoDBClient, DescribeTableCommand } from '@aws-sdk/client-dynamodb';
-import {
-  DynamoDBDocumentClient,
-  BatchGetCommand,
-  PutCommand,
-  ScanCommand,
-} from '@aws-sdk/lib-dynamodb';
 import { ServiceEnvironmentNamingProvider } from '../cdk/cdk_constructs/namingProviders/ServiceEnvironmentNamingProvider';
 
 // ── Config ──────────────────────────────────────────────────────────────────
@@ -65,6 +66,12 @@ export interface Config {
   region: string;
   dryRun: boolean;
   checkOrphans: boolean;
+  /**
+   * When non-null, `sourceEnabled` is script-controlled: slugs in the set are
+   * enabled, all others are disabled. When null, all sources are enabled and
+   * `sourceEnabled` is treated as operator-owned (never overwritten).
+   */
+  enabledSlugs: Set<string> | null;
 }
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
@@ -97,6 +104,14 @@ Options:
  --dry-run Report the plan without writing anything (env SEED_DRY_RUN)
  --check-orphans Scan for seeded rows no longer published upstream (report only)
  --help Show this message
+
+Env (not flags):
+ COUNTRY_SOURCES_ENABLED JSON string array of country slugs to enable.
+ When set, every source is enabled iff its slug is in the
+ array; absent slugs are disabled and sourceEnabled is
+ patched accordingly. When unset, all sources are enabled
+ and sourceEnabled is treated as operator-owned (never
+ overwritten).
 `;
 }
 
@@ -160,6 +175,27 @@ export function parseConfig(argv: string[] = process.argv.slice(2)): Config {
 
   if (values.help) throw new UsageError(usageText(), 0);
 
+  const rawEnabled = process.env.COUNTRY_SOURCES_ENABLED?.trim();
+  let enabledSlugs: Set<string> | null = null;
+  if (rawEnabled) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(rawEnabled);
+    } catch {
+      throw new UsageError(
+        'COUNTRY_SOURCES_ENABLED must be a valid JSON array of strings',
+        1,
+      );
+    }
+    if (!Array.isArray(parsed) || parsed.some((s) => typeof s !== 'string')) {
+      throw new UsageError(
+        'COUNTRY_SOURCES_ENABLED must be a JSON array of strings',
+        1,
+      );
+    }
+    enabledSlugs = new Set(parsed as string[]);
+  }
+
   return {
     tableName: resolveTableName({
       table: values.table,
@@ -169,12 +205,14 @@ export function parseConfig(argv: string[] = process.argv.slice(2)): Config {
     region: values.region!,
     dryRun: values['dry-run']!,
     checkOrphans: values['check-orphans']!,
+    enabledSlugs,
   };
 }
 
 // ── Source data ─────────────────────────────────────────────────────────────
 
 interface GovUkChild {
+  public_updated_at?: string;
   details?: {
     country?: { name?: string; slug?: string; synonyms?: string[] };
   };
@@ -188,12 +226,17 @@ export interface CountryItem {
   slug: string;
   name: string;
   synonyms: string[];
+  /** ISO-8601 timestamp sourced from the upstream `public_updated_at` field. */
+  lastUpdated: string;
 }
 
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
-export function toCountryItem(child: GovUkChild): CountryItem | null {
+export function toCountryItem(
+  child: GovUkChild,
+  fallbackDate: string,
+): CountryItem | null {
   const country = child.details?.country;
   // A child without a slug cannot be keyed, so it is not seedable.
   if (!country?.slug || !country.name) return null;
@@ -202,6 +245,7 @@ export function toCountryItem(child: GovUkChild): CountryItem | null {
     slug: country.slug,
     name: country.name,
     synonyms: country.synonyms ?? [],
+    lastUpdated: child.public_updated_at ?? fallbackDate,
   };
 }
 
@@ -212,13 +256,16 @@ export function dedupeBySlug(countries: CountryItem[]): CountryItem[] {
 }
 
 /** Parse and validate an upstream payload. Split out so the guard is testable. */
-export function parseCountriesPayload(body: unknown): CountryItem[] {
+export function parseCountriesPayload(
+  body: unknown,
+  fallbackDate = new Date().toISOString(),
+): CountryItem[] {
   const children =
     (body as { links?: { children?: GovUkChild[] } } | null)?.links?.children ??
     [];
 
   const countries = children
-    .map(toCountryItem)
+    .map((child) => toCountryItem(child, fallbackDate))
     .filter((country): country is CountryItem => country !== null);
 
   if (countries.length < MIN_EXPECTED_COUNTRIES) {
@@ -280,7 +327,8 @@ export function buildSource(
   slug: string,
   country: string,
   synonyms: string[],
-  now: string,
+  lastUpdated: string,
+  enabled: boolean,
 ): Source {
   const URL = contentUrlForSlug(slug);
 
@@ -294,22 +342,28 @@ export function buildSource(
     compositeKey: `${SOURCE_NAMESPACE}/${slug}`,
     accessMethod: 'api',
     URL,
-    sourceEnabled: true,
+    sourceEnabled: enabled,
     sourceDetail: {
       slug,
       country,
       synonyms: synonyms ? synonyms : [],
     },
-    lastUpdated: now,
+    lastUpdated,
   };
 }
 
 export function buildDesiredSources(
   countries: CountryItem[],
-  now: string,
+  enabledSlugs: Set<string> | null,
 ): Source[] {
   return countries.map((country) =>
-    buildSource(country.slug, country.name, country.synonyms, now),
+    buildSource(
+      country.slug,
+      country.name,
+      country.synonyms,
+      country.lastUpdated,
+      enabledSlugs === null || enabledSlugs.has(country.slug),
+    ),
   );
 }
 
@@ -320,6 +374,7 @@ export interface ExistingSource {
   sourceGroup: string;
   sourceEnabled?: boolean;
   keyARN?: string;
+  lastUpdated?: string;
 }
 
 /** Composite identity of a row, used to key the existing-state map. */
@@ -399,12 +454,14 @@ export async function readExistingSources(
       // A stale read would print a lying plan, and this output is the deploy
       // record of what was seeded.
       ConsistentRead: true,
-      ProjectionExpression: '#sourceID, #sourceGroup, #sourceEnabled, #keyARN',
+      ProjectionExpression:
+        '#sourceID, #sourceGroup, #sourceEnabled, #keyARN, #lastUpdated',
       ExpressionAttributeNames: {
         '#sourceID': 'sourceID',
         '#sourceGroup': 'sourceGroup',
         '#sourceEnabled': 'sourceEnabled',
         '#keyARN': 'keyARN',
+        '#lastUpdated': 'lastUpdated',
       },
     };
 
@@ -438,16 +495,25 @@ export async function readExistingSources(
 
 export interface SeedPlan {
   toInsert: Source[];
+  toUpdate: Source[];
   unchanged: number;
   disabled: string[];
+  /** Existing rows whose `sourceEnabled` will flip to `true`. */
+  toEnable: string[];
+  /** Existing rows whose `sourceEnabled` will flip to `false`. */
+  toDisable: string[];
 }
 
 export function buildPlan(
   desired: Source[],
   existing: Map<string, ExistingSource>,
+  enabledSlugs: Set<string> | null,
 ): SeedPlan {
   const toInsert: Source[] = [];
+  const toUpdate: Source[] = [];
   const disabled: string[] = [];
+  const toEnable: string[] = [];
+  const toDisable: string[] = [];
   let unchanged = 0;
 
   for (const source of desired) {
@@ -455,15 +521,35 @@ export function buildPlan(
 
     if (!current) {
       toInsert.push(source);
+      if (!source.sourceEnabled) disabled.push(source.sourceGroup);
       continue;
     }
 
-    unchanged++;
-    // Reported, never corrected — `sourceEnabled` is operator-owned.
-    if (current.sourceEnabled === false) disabled.push(source.sourceGroup);
+    // `sourceEnabled` is operator-owned unless enabledSlugs is set, in which
+    // case the script is authoritative for that field.
+    const enabledDrifted =
+      enabledSlugs !== null && current.sourceEnabled !== source.sourceEnabled;
+
+    if (enabledDrifted) {
+      if (source.sourceEnabled) toEnable.push(source.sourceGroup);
+      else toDisable.push(source.sourceGroup);
+    } else if (current.sourceEnabled === false) {
+      disabled.push(source.sourceGroup);
+    }
+
+    // Never advance a stored timestamp — only patch when the upstream date is
+    // earlier than what is already in the DB (or the field is absent on an old row).
+    const dateDrifted =
+      !current.lastUpdated || source.lastUpdated < current.lastUpdated;
+
+    if (dateDrifted || enabledDrifted) {
+      toUpdate.push(source);
+    } else {
+      unchanged++;
+    }
   }
 
-  return { toInsert, unchanged, disabled };
+  return { toInsert, toUpdate, unchanged, disabled, toEnable, toDisable };
 }
 
 // ── Write ───────────────────────────────────────────────────────────────────
@@ -530,6 +616,67 @@ export async function insertSources(
     await Promise.all(window.map(putOne));
     console.log(
       ` written ${result.written + result.skipped}/${sources.length}`,
+    );
+  }
+
+  return result;
+}
+
+// ── Patch ────────────────────────────────────────────────────────────────────
+
+/**
+ * Patch `lastUpdated` on rows that already exist but whose upstream timestamp
+ * has drifted. Only this field is touched; all operator-owned fields are left
+ * as-is.
+ */
+export async function patchSources(
+  documentClient: DynamoDBDocumentClient,
+  config: Config,
+  sources: Source[],
+  patchEnabled: boolean,
+): Promise<WriteResult> {
+  const result: WriteResult = { written: 0, skipped: 0 };
+
+  const patchOne = async (source: Source): Promise<void> => {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await documentClient.send(
+          new UpdateCommand({
+            TableName: config.tableName,
+            Key: {
+              sourceID: source.sourceID,
+              compositeKey: source.compositeKey,
+            },
+            UpdateExpression: patchEnabled
+              ? 'SET #lastUpdated = :lastUpdated, #sourceEnabled = :sourceEnabled'
+              : 'SET #lastUpdated = :lastUpdated',
+            ExpressionAttributeNames: patchEnabled
+              ? {
+                  '#lastUpdated': 'lastUpdated',
+                  '#sourceEnabled': 'sourceEnabled',
+                }
+              : { '#lastUpdated': 'lastUpdated' },
+            ExpressionAttributeValues: patchEnabled
+              ? {
+                  ':lastUpdated': source.lastUpdated,
+                  ':sourceEnabled': source.sourceEnabled,
+                }
+              : { ':lastUpdated': source.lastUpdated },
+          }),
+        );
+        result.written++;
+        return;
+      } catch (error) {
+        if (!isThrottle(error) || attempt >= MAX_BATCH_RETRIES) throw error;
+        await sleep(200 * 2 ** attempt);
+      }
+    }
+  };
+
+  for (const window of chunk(sources, WRITE_CHUNK_SIZE)) {
+    await Promise.all(window.map(patchOne));
+    console.log(
+      ` patched ${result.written + result.skipped}/${sources.length}`,
     );
   }
 
@@ -614,13 +761,21 @@ export async function main(argv?: string[]): Promise<void> {
   console.log(` ${countries.length} countries published upstream`);
 
   // Desired rows are built first: their keys are the input to the state check.
-  const desired = buildDesiredSources(countries, new Date().toISOString());
+  const desired = buildDesiredSources(countries, config.enabledSlugs);
+
+  if (config.enabledSlugs !== null) {
+    const enabledCount = desired.filter((s) => s.sourceEnabled).length;
+    const disabledCount = desired.length - enabledCount;
+    console.log(
+      `Enabled filter: ${config.enabledSlugs.size} slug(s) → ${enabledCount} enabled, ${disabledCount} disabled`,
+    );
+  }
 
   console.log('Reading current state...');
   const existing = await readExistingSources(documentClient, config, desired);
   console.log(` ${existing.size} of ${desired.length} already present`);
 
-  const plan = buildPlan(desired, existing);
+  const plan = buildPlan(desired, existing, config.enabledSlugs);
   const orphans = config.checkOrphans
     ? await scanOrphans(documentClient, config, desired)
     : [];
@@ -628,6 +783,22 @@ export async function main(argv?: string[]): Promise<void> {
   console.log('');
   console.log('Plan:');
   console.log(` missing (will insert): ${plan.toInsert.length}`);
+  if (plan.toInsert.length > 0 && config.enabledSlugs !== null) {
+    const insertEnabled = plan.toInsert.filter((s) => s.sourceEnabled).length;
+    const insertDisabled = plan.toInsert.length - insertEnabled;
+    console.log(`   → ${insertEnabled} enabled, ${insertDisabled} disabled`);
+  }
+  console.log(` will patch: ${plan.toUpdate.length}`);
+  if (plan.toEnable.length > 0) {
+    console.log(
+      `   → will enable (${plan.toEnable.length}): ${plan.toEnable.join(', ')}`,
+    );
+  }
+  if (plan.toDisable.length > 0) {
+    console.log(
+      `   → will disable (${plan.toDisable.length}): ${plan.toDisable.join(', ')}`,
+    );
+  }
   console.log(` unchanged (skipped): ${plan.unchanged}`);
   if (plan.disabled.length > 0) {
     console.log(
@@ -639,33 +810,66 @@ export async function main(argv?: string[]): Promise<void> {
   }
   console.log('');
 
-  if (plan.toInsert.length === 0) {
-    console.log('Nothing to do — table is already seeded.');
+  if (plan.toInsert.length === 0 && plan.toUpdate.length === 0) {
+    console.log('Nothing to do — table is already up-to-date.');
     return;
   }
 
   if (config.dryRun) {
     for (const source of plan.toInsert) {
-      console.log(` would insert: ${source.sourceGroup}`);
+      const enabledTag =
+        config.enabledSlugs !== null
+          ? ` [${source.sourceEnabled ? 'enabled' : 'disabled'}]`
+          : '';
+      console.log(` would insert: ${source.sourceGroup}${enabledTag}`);
+    }
+    const toEnableSet = new Set(plan.toEnable);
+    const toDisableSet = new Set(plan.toDisable);
+    for (const source of plan.toUpdate) {
+      const parts: string[] = [`lastUpdated → ${source.lastUpdated}`];
+      if (toEnableSet.has(source.sourceGroup))
+        parts.push('sourceEnabled → true');
+      if (toDisableSet.has(source.sourceGroup))
+        parts.push('sourceEnabled → false');
+      console.log(` would patch: ${source.sourceGroup} (${parts.join(', ')})`);
     }
     console.log('');
-    console.log(`Dry run — ${plan.toInsert.length} row(s) would be inserted.`);
+    console.log(
+      `Dry run — ${plan.toInsert.length} row(s) would be inserted, ${plan.toUpdate.length} row(s) would be patched.`,
+    );
     return;
   }
 
-  console.log(`Inserting ${plan.toInsert.length} row(s)...`);
-  const { written, skipped } = await insertSources(
-    documentClient,
-    config,
-    plan.toInsert,
-  );
+  let inserted = 0;
+  let insertSkipped = 0;
+  if (plan.toInsert.length > 0) {
+    console.log(`Inserting ${plan.toInsert.length} row(s)...`);
+    const r = await insertSources(documentClient, config, plan.toInsert);
+    inserted = r.written;
+    insertSkipped = r.skipped;
+  }
+
+  let patched = 0;
+  if (plan.toUpdate.length > 0) {
+    console.log(`Patching ${plan.toUpdate.length} row(s)...`);
+    const r = await patchSources(
+      documentClient,
+      config,
+      plan.toUpdate,
+      config.enabledSlugs !== null,
+    );
+    patched = r.written;
+  }
 
   console.log('');
-  console.log(
-    `Seed complete — ${written} row(s) inserted${
-      skipped > 0 ? `, ${skipped} already present` : ''
-    }.`,
-  );
+  const parts: string[] = [];
+  if (inserted > 0 || insertSkipped > 0) {
+    parts.push(
+      `${inserted} row(s) inserted${insertSkipped > 0 ? ` (${insertSkipped} already present)` : ''}`,
+    );
+  }
+  if (patched > 0) parts.push(`${patched} row(s) patched`);
+  console.log(`Seed complete — ${parts.join(', ')}.`);
 }
 
 /**

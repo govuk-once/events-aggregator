@@ -73,6 +73,7 @@ jobs:
     uses: ./.github/workflows/_seed_data.yml
     with:
       environment-name: development
+      github-environment: development
       service-name: dynamotable
       table-name: development-dynamotable-sourceStore
     secrets:
@@ -92,11 +93,12 @@ jobs:
       DEPLOYMENT_ROLE: ${{ secrets.STAGING_DEPLOYMENT_ROLE }}
 
   SeedStaging:
-    name: Seed dev data
+    name: Seed staging data
     needs: DeployToStaging
     uses: ./.github/workflows/_seed_data.yml
     with:
       environment-name: staging
+      github-environment: staging
       service-name: dynamotable
       table-name: staging-dynamotable-sourceStore
     secrets:
