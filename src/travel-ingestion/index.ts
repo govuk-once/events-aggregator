@@ -1,4 +1,7 @@
-import { getEventSourceByCompositeKeys } from '@/services/eventSources';
+import {
+  getEventSourceByCompositeKeys,
+  updateSourceLastUpdated,
+} from '@/services/eventSources';
 import type { TravelAlertScheduleEvent } from '@/types';
 import {
   getCountryChanges,
@@ -77,10 +80,15 @@ const processSource = async (
   source: EventSource,
   startTime: StartTime,
   context: ScheduleContext,
+  tableName: string,
 ): Promise<void> => {
   const country = await segment(tracer, 'GetCountryChanges', async () =>
     getCountryChanges(source.URL),
   );
+
+  if (country.public_updated_at) {
+    await updateSourceLastUpdated(source, tableName, country.public_updated_at);
+  }
 
   const countryChanges = getEventsFromCountry(country, startTime);
 
@@ -188,9 +196,10 @@ export const handler = async (event: TravelAlertScheduleEvent) => {
 
     // A disabled or empty source skips that country only — it must not stop
     // the countries queued behind it.
+    const tableName = process.env.SOURCE_TABLE_NAME as string;
     for (const source of sources) {
       if (source.sourceEnabled) {
-        await processSource(source, startTime, context);
+        await processSource(source, startTime, context, tableName);
       }
     }
 

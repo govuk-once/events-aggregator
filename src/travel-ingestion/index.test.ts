@@ -15,7 +15,9 @@ import nock from 'nock';
 import { mockClient } from 'aws-sdk-client-mock';
 import {
   QueryCommand,
+  UpdateCommand,
   type QueryCommandInput,
+  type UpdateCommandInput,
   DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
 import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
@@ -636,6 +638,145 @@ describe('Travel Alerts Schedule', () => {
 
     scope.done();
     contentScope.done();
+  });
+
+  it('should call updateSourceLastUpdated when public_updated_at is present', async () => {
+    dynamoMock.on(asCommand(QueryCommand)).resolves({ Items: [spainSource] });
+    dynamoMock.on(asCommand(UpdateCommand)).resolves({});
+    sqsMock.on(SendMessageCommand).resolves({});
+
+    const scope = nock('https://www.gov.uk')
+      .get('/api/search.json')
+      .query(true)
+      .reply(200, { results: [{ link: '/foreign-travel-advice/spain' }] });
+
+    const contentScope = nock('https://www.gov.uk')
+      .get('/api/content/travel-advice/spain')
+      .query(true)
+      .reply(200, {
+        public_updated_at: '2026-07-21T10:10:00.000Z',
+        details: {
+          change_history: [
+            {
+              note: 'A change has happened',
+              public_timestamp: '2026-07-21T10:10:00Z',
+            },
+          ],
+          country: { name: 'Spain', slug: 'spain' },
+        },
+      });
+
+    const response = await handler({
+      triggeredAt: '2026-07-20',
+      schedule: 'daily',
+    });
+
+    expect(response).toBe(true);
+
+    const updateCalls = dynamoMock.commandCalls(asCommand(UpdateCommand));
+    expect(updateCalls).toHaveLength(1);
+
+    const updateInput = updateCalls[0]?.args[0].input as UpdateCommandInput;
+    expect(updateInput).toMatchObject({
+      TableName: 'tablename',
+      Key: { sourceID: 'src-spain', compositeKey: 'travel/spain' },
+      UpdateExpression: 'SET #lastUpdated = :lastUpdated',
+      ExpressionAttributeNames: { '#lastUpdated': 'lastUpdated' },
+      ExpressionAttributeValues: { ':lastUpdated': '2026-07-21T10:10:00.000Z' },
+    });
+
+    scope.done();
+    contentScope.done();
+  });
+
+  it('should return false and log when no results contain a travel-advice link', async () => {
+    const scope = nock('https://www.gov.uk')
+      .get('/api/search.json')
+      .query(true)
+      .reply(200, {
+        results: [{ link: '/some-unrelated-page' }, { link: '/another/page' }],
+      });
+
+    const result = await handler({
+      triggeredAt: '2027-07-20',
+      schedule: 'daily',
+    });
+
+    expect(result).toBe(false);
+
+    expect(loggerInfoSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'No usable composite keys derived' }),
+    );
+
+    expect(metricsAddSpy).toHaveBeenCalledWith(
+      'TravelAdviceResultsRetrieved',
+      MetricUnit.Count,
+      2,
+    );
+    expect(metricsAddSpy).not.toHaveBeenCalledWith(
+      'EventSourcesRetrieved',
+      MetricUnit.Count,
+      expect.any(Number),
+    );
+    expect(metricsPublishSpy).toHaveBeenCalledTimes(1);
+
+    scope.done();
+  });
+
+  it('should append debugSuffix to each change note when provided', async () => {
+    dynamoMock.on(asCommand(QueryCommand)).resolves({ Items: [spainSource] });
+    sqsMock.on(SendMessageCommand).resolves({});
+
+    const scope = nock('https://www.gov.uk')
+      .get('/api/search.json')
+      .query(true)
+      .reply(200, { results: [{ link: '/foreign-travel-advice/spain' }] });
+
+    const contentScope = nock('https://www.gov.uk')
+      .get('/api/content/travel-advice/spain')
+      .query(true)
+      .reply(200, {
+        details: {
+          change_history: [
+            {
+              note: 'Base note',
+              public_timestamp: '2026-07-21T10:10:00Z',
+            },
+          ],
+          country: { name: 'Spain', slug: 'spain' },
+        },
+      });
+
+    await handler({
+      triggeredAt: '2026-07-20',
+      schedule: 'daily',
+      debugSuffix: '-TEST',
+    });
+
+    const sendCalls = sqsMock.commandCalls(SendMessageCommand);
+    expect(sendCalls).toHaveLength(1);
+
+    const body = JSON.parse(sendCalls[0]?.args[0].input.MessageBody as string);
+    expect(body.eventNote).toBe('Base note-TEST');
+
+    scope.done();
+    contentScope.done();
+  });
+
+  it('should log "Unknown error" and rethrow when a non-Error is thrown', async () => {
+    segmentMock.mockRejectedValueOnce('plain string error');
+
+    await expect(
+      handler({ triggeredAt: '2027-07-20', schedule: 'daily' }),
+    ).rejects.toBe('plain string error');
+
+    expect(loggerErrorSpy).toHaveBeenCalledWith({
+      message: 'Unknown error',
+      triggeredAt: '2027-07-20',
+      schedule: 'daily',
+    });
+
+    expect(metricsPublishSpy).toHaveBeenCalledTimes(1);
   });
 
   it('should skip a disabled source without queuing events', async () => {

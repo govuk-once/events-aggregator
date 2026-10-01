@@ -33,6 +33,7 @@ export type CountryDetails = {
 };
 
 export type CountryResponse = {
+  public_updated_at?: string;
   details: CountryDetails;
 };
 
