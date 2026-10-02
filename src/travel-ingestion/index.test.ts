@@ -204,6 +204,7 @@ describe('Travel Alerts Schedule', () => {
       );
 
     dynamoMock.on(asCommand(QueryCommand)).resolves({ Items: [spainSource] });
+    dynamoMock.on(asCommand(UpdateCommand)).resolves({});
 
     sqsMock.on(SendMessageCommand).resolves({});
 
@@ -309,6 +310,7 @@ describe('Travel Alerts Schedule', () => {
     };
 
     dynamoMock.on(asCommand(QueryCommand)).resolves({ Items: [spainSource] });
+    dynamoMock.on(asCommand(UpdateCommand)).resolves({});
     sqsMock.on(SendMessageCommand).resolves({});
 
     await stubRun('daily');
@@ -640,7 +642,7 @@ describe('Travel Alerts Schedule', () => {
     contentScope.done();
   });
 
-  it('should call updateSourceLastUpdated when public_updated_at is present', async () => {
+  it('should call updateSourceLastUpdated with the most recent change_history public_timestamp', async () => {
     dynamoMock.on(asCommand(QueryCommand)).resolves({ Items: [spainSource] });
     dynamoMock.on(asCommand(UpdateCommand)).resolves({});
     sqsMock.on(SendMessageCommand).resolves({});
@@ -654,12 +656,15 @@ describe('Travel Alerts Schedule', () => {
       .get('/api/content/travel-advice/spain')
       .query(true)
       .reply(200, {
-        public_updated_at: '2026-07-21T10:10:00.000Z',
         details: {
           change_history: [
             {
               note: 'A change has happened',
               public_timestamp: '2026-07-21T10:10:00Z',
+            },
+            {
+              note: 'An older change',
+              public_timestamp: '2026-07-20T08:00:00Z',
             },
           ],
           country: { name: 'Spain', slug: 'spain' },
@@ -682,7 +687,7 @@ describe('Travel Alerts Schedule', () => {
       Key: { sourceID: 'src-spain', compositeKey: 'travel/spain' },
       UpdateExpression: 'SET #lastUpdated = :lastUpdated',
       ExpressionAttributeNames: { '#lastUpdated': 'lastUpdated' },
-      ExpressionAttributeValues: { ':lastUpdated': '2026-07-21T10:10:00.000Z' },
+      ExpressionAttributeValues: { ':lastUpdated': '2026-07-21T10:10:00Z' },
     });
 
     scope.done();
@@ -725,6 +730,7 @@ describe('Travel Alerts Schedule', () => {
 
   it('should append debugSuffix to each change note when provided', async () => {
     dynamoMock.on(asCommand(QueryCommand)).resolves({ Items: [spainSource] });
+    dynamoMock.on(asCommand(UpdateCommand)).resolves({});
     sqsMock.on(SendMessageCommand).resolves({});
 
     const scope = nock('https://www.gov.uk')
