@@ -138,7 +138,7 @@ const mockRequestPayload = [
     NotificationBody: "There's been a change in country you are interested in",
     MessageTitle: 'Spain: Travel advice alert',
     MessageBody:
-      '[Go to latest](govuk://app.gov.uk/web?url=https://www.gov.uk/foreign-travel-advice/spain)\n' +
+      '[Go to latest](https://www.gov.uk/foreign-travel-advice/spain)\n' +
       '\n' +
       'Changes made:\n' +
       'Storm warning\n' +
@@ -158,7 +158,7 @@ const mockRequestPayload = [
     NotificationBody: "There's been a change in country you are interested in",
     MessageTitle: 'Spain: Travel advice alert',
     MessageBody:
-      '[Go to latest](govuk://app.gov.uk/web?url=https://www.gov.uk/foreign-travel-advice/spain)\n' +
+      '[Go to latest](https://www.gov.uk/foreign-travel-advice/spain)\n' +
       '\n' +
       'Changes made:\n' +
       'Storm warning\n' +
