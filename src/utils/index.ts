@@ -153,7 +153,7 @@ export const getNotificationPayload = (
     MessageBody: segments(
       link(
         `Go to latest`,
-        `govuk://app.gov.uk/web?url=https://www.gov.uk/foreign-travel-advice/${dbEntry.group}`,
+        `https://www.gov.uk/foreign-travel-advice/${dbEntry.group}`,
       ),
       lines(`Changes made:`, dbEntry.eventNote),
       lines(`Time updated:`, getFormattedDate(dbEntry.eventTimestamp)),
