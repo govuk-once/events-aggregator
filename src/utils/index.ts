@@ -6,6 +6,7 @@ import type {
   SearchResponse,
 } from '@/types';
 import type { DynamoEvent } from '@/types/event';
+import { createHash } from 'node:crypto';
 
 import { getSecret } from '@aws-lambda-powertools/parameters/secrets';
 
@@ -144,6 +145,11 @@ export const getNotificationPayload = (
   const link = (url: string, label: string) => `[${url}](${label})`;
 
   return {
+    GroupNotificationID: hashToUuidV4({
+      dbEntry,
+      schedule,
+      channel,
+    }),
     Namespace: dbEntry.namespace,
     Group: dbEntry.group,
     Subgroup: schedule,
@@ -188,3 +194,15 @@ export const getEventsFromCountry = (
 
   return countryChanges;
 };
+
+export function hashToUuidV4<T extends object>(input: T): string {
+  const concentratedObject = JSON.stringify(Object.values(input));
+
+  const hash = createHash('sha256').update(concentratedObject).digest();
+  const buffer = hash.subarray(0, 16);
+  buffer[6] = (buffer[6] & 0x0f) | 0x40;
+  buffer[8] = (buffer[8] & 0x3f) | 0x80;
+  const hex = buffer.toString('hex');
+
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+}

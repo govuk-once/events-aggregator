@@ -38,6 +38,7 @@ export type CountryResponse = {
 };
 
 export type NotificationPayload = {
+  GroupNotificationID?: string;
   Namespace: string;
   Group: string;
   Subgroup: string;
