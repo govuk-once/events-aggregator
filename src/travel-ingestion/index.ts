@@ -86,8 +86,9 @@ const processSource = async (
     getCountryChanges(source.URL),
   );
 
-  if (country.public_updated_at) {
-    await updateSourceLastUpdated(source, tableName, country.public_updated_at);
+  const latestTimestamp = country.details.change_history[0]?.public_timestamp;
+  if (latestTimestamp) {
+    await updateSourceLastUpdated(source, tableName, latestTimestamp);
   }
 
   const countryChanges = getEventsFromCountry(country, startTime);
