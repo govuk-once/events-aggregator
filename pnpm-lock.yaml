@@ -45,8 +45,8 @@ importers:
         specifier: ^3.996.9
         version: 3.996.9(@aws-sdk/client-dynamodb@3.1143.0)
       aws-cdk-lib:
-        specifier: 2.268.0
-        version: 2.268.0(constructs@10.8.1)
+        specifier: 2.271.0
+        version: 2.271.0(constructs@10.8.1)
       aws-lambda:
         specifier: ^1.0.7
         version: 1.0.7
@@ -103,8 +103,8 @@ importers:
         specifier: 4.1.11
         version: 4.1.11(vitest@4.1.11)
       aws-cdk:
-        specifier: 2.1140.0
-        version: 2.1140.0
+        specifier: 2.1143.0
+        version: 2.1143.0
       chai:
         specifier: ^6.2.2
         version: 6.2.2
@@ -1226,8 +1226,8 @@ packages:
     resolution: {integrity: sha512-wvUjBtSGN7+7SjNpq/9M2Tg350UZD3q62IFZLbRAR1bSMlCo1ZaeW+BJ+D090e4hIIZLBcTDWe4Mh4jvUDajzQ==}
     engines: {node: '>= 0.4'}
 
-  aws-cdk-lib@2.268.0:
-    resolution: {integrity: sha512-bm0mWG0xxIJtV0vhkmnFy6TFgwqBowvXeRKudhAsjM0TMOEcyFPBbwjUNlAA6S1+AjUwEt5yaMrT0A/P97lUqg==}
+  aws-cdk-lib@2.271.0:
+    resolution: {integrity: sha512-VdLda/mCneNUZkfKIYiTYSCbDdGaTmH9uhfGs5TYIfvIqKuyUcZK6S7+LaF+pRhkNnbTGgKqvCqRIMemZOvCnA==}
     engines: {node: '>= 20.0.0'}
     peerDependencies:
       constructs: ^10.5.0
@@ -1245,8 +1245,8 @@ packages:
       - yaml
       - mime-types
 
-  aws-cdk@2.1140.0:
-    resolution: {integrity: sha512-myrqWFEby3w+athNRM5EcnKXpby8shR7WwhxtAE853qDPmCggvIZe0wwkUzyuWJdFVD3zP5rzRuATxnnapeXig==}
+  aws-cdk@2.1143.0:
+    resolution: {integrity: sha512-bTbgEmNuN6UMDAyhGFWOAnriafSu7j0cAjaFKRw1/WEs6RE5g062D2v2+YE8Dw6qw7RgNGQPH5Nv47TsK5kZSQ==}
     engines: {node: '>= 18.0.0'}
     hasBin: true
 
@@ -2951,6 +2951,10 @@ packages:
     resolution: {integrity: sha512-yau8yJdTt989Mm0Bd/236QnzEiPf2xLLTqUZRUJOo/3CB078LSwzei343DgtJVmfJKJE3TMINY1u42SQsP6mXw==}
     engines: {node: '>=14.0.0'}
 
+  tinyrainbow@3.2.0:
+    resolution: {integrity: sha512-LgO3D9yZJjApUiuUfl9iFAwrtaX4+lok3wJIqttGoKCHlWUqHqbQpnxCf82L8FjgKsh4iGo78hqJwgL8F6To2A==}
+    engines: {node: '>=14.0.0'}
+
   to-regex-range@5.0.1:
     resolution: {integrity: sha512-65P7iz6X5yEr1cwcgvQxbbIw7Uk3gOy5dIdtZ4rDveLqhrdJP+Li/Hx6tyK0NEb+2GCyneCMJiGqrADCSNk8sQ==}
     engines: {node: '>=8.0'}
@@ -4466,7 +4470,7 @@ snapshots:
       pathe: 2.0.3
       sirv: 3.0.2
       tinyglobby: 0.2.17
-      tinyrainbow: 3.1.1
+      tinyrainbow: 3.2.0
       vitest: 4.1.11(@types/node@24.19.0)(@vitest/coverage-v8@4.1.11)(@vitest/ui@4.1.11)(vite@8.1.5(@types/node@24.19.0)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
     optional: true
 
@@ -4565,14 +4569,14 @@ snapshots:
     dependencies:
       possible-typed-array-names: 1.1.0
 
-  aws-cdk-lib@2.268.0(constructs@10.8.1):
+  aws-cdk-lib@2.271.0(constructs@10.8.1):
     dependencies:
       '@aws-cdk/asset-awscli-v1': 2.2.292
       '@aws-cdk/asset-node-proxy-agent-v6': 2.1.3
       '@aws-cdk/cloud-assembly-schema': 54.25.0
       constructs: 10.8.1
 
-  aws-cdk@2.1140.0: {}
+  aws-cdk@2.1143.0: {}
 
   aws-lambda@1.0.7:
     dependencies:
@@ -6180,6 +6184,9 @@ snapshots:
       picomatch: 4.0.7
 
   tinyrainbow@3.1.1: {}
+
+  tinyrainbow@3.2.0:
+    optional: true
 
   to-regex-range@5.0.1:
     dependencies:
