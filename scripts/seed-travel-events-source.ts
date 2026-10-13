@@ -418,6 +418,7 @@ export async function assertTableActive(
       ) {
         throw new Error(
           `Table '${tableName}' does not exist — has the stack been deployed?`,
+          { cause: error },
         );
       }
       throw error;

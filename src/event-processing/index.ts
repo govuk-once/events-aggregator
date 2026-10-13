@@ -38,7 +38,7 @@ export const parseSqsMessage = (record: SQSRecord) => {
     return item;
   } catch (error) {
     logger.error('Unable to parse the SQS payload', { error });
-    throw new Error('Unable to parse the SQS payload');
+    throw new Error('Unable to parse the SQS payload', { cause: error });
   }
 };
 
