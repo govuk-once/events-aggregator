@@ -14,7 +14,7 @@
   "scripts": {
     "build": "node build-lambdas.mjs",
     "watch": "tsc -w",
-    "dev": "concurrently -n tsc,cdk -c purple,orange\"tsc -w\" \"cdk watch --hotswap\"",
+    "dev": "tsx scripts/dev.ts",
     "test": "vitest run",
     "test:unit": "vitest run --coverage src --passWithNoTests",
     "test:coverage": "vitest run --coverage src --passWithNoTests",
@@ -41,27 +41,24 @@
     "semantic:release": "semantic-release"
   },
   "devDependencies": {
-    "@cucumber/cucumber": "^12.9.0",
-    "@cucumber/pretty-formatter": "^2.4.1",
-    "@eslint/js": "^9.39.5",
+    "@eslint/js": "^10.0.1",
     "@semantic-release/exec": "^7.1.0",
     "@types/aws-lambda": "^8.10.164",
-    "@types/node": "^24.19.0",
-    "@vitest/coverage-v8": "4.1.11",
-    "aws-cdk": "2.1140.0",
+    "@types/node": "^26.6.4",
+    "@vitest/coverage-v8": "^5.0.3",
+    "aws-cdk": "2.1144.0",
     "chai": "^6.2.2",
-    "concurrently": "^10.0.5",
     "esbuild": "^0.28.2",
-    "eslint": "^9.39.5",
+    "eslint": "^10.12.0",
     "globals": "^17.12.0",
     "jiti": "^2.7.0",
     "prettier": "^3.9.9",
     "semantic-release": "^25.0.9",
     "ts-node": "^10.9.2",
-    "typescript": "~5.9.3",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
     "typescript-eslint": "^8.71.0",
-    "undici-types": "^7.30.0",
-    "vitest": "^4.1.11"
+    "undici-types": "^8.11.2",
+    "vitest": "^5.0.3"
   },
   "dependencies": {
     "@aws-lambda-powertools/batch": "^2.35.0",
@@ -76,7 +73,7 @@
     "@aws-sdk/lib-dynamodb": "^3.1143.0",
     "@aws-sdk/types": "^3.974.6",
     "@aws-sdk/util-dynamodb": "^3.996.9",
-    "aws-cdk-lib": "2.268.0",
+    "aws-cdk-lib": "2.272.0",
     "aws-lambda": "^1.0.7",
     "aws-sdk-client-mock": "^4.1.0",
     "aws-xray-sdk-core": "^3.12.0",
@@ -85,7 +82,7 @@
     "nock": "^14.0.17",
     "secrets": "link:@aws-lambda-powertools/parameters/secrets",
     "tsx": "^4.23.15",
-    "undici": "^7.30.0",
+    "undici": "^8.11.2",
     "uuid": "^14.0.2",
     "vite-tsconfig-paths": "^6.1.1"
   }
