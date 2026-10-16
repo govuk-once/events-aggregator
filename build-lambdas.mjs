@@ -1,7 +1,9 @@
 import { build } from 'esbuild';
-import glob from 'fast-glob';
+import { globSync } from 'node:fs';
 
-const entryPoints = await glob('src/**/*.ts');
+const entryPoints = [...globSync('src/**/*.ts')]
+  .filter((name) => name.endsWith('test.unit.ts') == false)
+  .sort();
 
 await build({
   entryPoints: entryPoints,
@@ -9,7 +11,7 @@ await build({
   outdir: 'dist',
   bundle: true,
   platform: 'node',
-  target: 'node22',
+  target: 'node24',
   format: 'cjs',
   tsconfig: 'tsconfig.json',
 }).catch(() => process.exit(1));

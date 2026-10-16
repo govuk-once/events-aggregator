@@ -103,3 +103,28 @@ jobs:
       table-name: staging-dynamotable-sourceStore
     secrets:
       DEPLOYMENT_ROLE: ${{ secrets.STAGING_DEPLOYMENT_ROLE }}
+
+  DeployToProduction:
+    name: 🛠️  Deploy To production Env
+    needs:
+      - Release
+      - DeployToDev
+    uses: ./.github/workflows/_build_deploy.yml
+    with:
+      environment: production
+      github-environment: production
+      VERSION: ${{needs.Release.outputs.semVer}}@${{ github.sha }}
+    secrets:
+      DEPLOYMENT_ROLE: ${{ secrets.PRODUCTION_DEPLOYMENT_ROLE }}
+
+  Seedproduction:
+    name: Seed production data
+    needs: DeployToProduction
+    uses: ./.github/workflows/_seed_data.yml
+    with:
+      environment-name: production
+      github-environment: production
+      service-name: dynamotable
+      table-name: production-dynamotable-sourceStore
+    secrets:
+      DEPLOYMENT_ROLE: ${{ secrets.PRODUCTION_DEPLOYMENT_ROLE }}
