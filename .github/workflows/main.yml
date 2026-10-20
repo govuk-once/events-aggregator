@@ -105,26 +105,26 @@ jobs:
       DEPLOYMENT_ROLE: ${{ secrets.STAGING_DEPLOYMENT_ROLE }}
 
   DeployToProduction:
-    name: 🛠️  Deploy To production Env
+    name: 🛠️  Deploy To Production Env
     needs:
       - Release
       - DeployToDev
     uses: ./.github/workflows/_build_deploy.yml
     with:
-      environment: production
-      github-environment: production
+      environment: prod
+      github-environment: prod
       VERSION: ${{needs.Release.outputs.semVer}}@${{ github.sha }}
     secrets:
       DEPLOYMENT_ROLE: ${{ secrets.PRODUCTION_DEPLOYMENT_ROLE }}
 
-  Seedproduction:
+  SeedProduction:
     name: Seed production data
     needs: DeployToProduction
     uses: ./.github/workflows/_seed_data.yml
     with:
-      environment-name: production
-      github-environment: production
+      environment-name: prod
+      github-environment: prod
       service-name: dynamotable
-      table-name: production-dynamotable-sourceStore
+      table-name: prod-dynamotable-sourceStore
     secrets:
       DEPLOYMENT_ROLE: ${{ secrets.PRODUCTION_DEPLOYMENT_ROLE }}
