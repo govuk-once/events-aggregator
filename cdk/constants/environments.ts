@@ -56,7 +56,12 @@ export const isSandboxEnvironment = (): boolean =>
 // identify if is ephemeral environment
 export const isEphemeralEnvironment = (): boolean => {
   const environment = getEnvironment();
-  const nonEphemeral = [GovUkOnceEnvironments.Stag, GovUkOnceEnvironments.Prod];
+  const nonEphemeral = [
+    GovUkOnceEnvironments.Stag,
+    GovUkOnceFullEnvironments.Stag,
+    GovUkOnceEnvironments.Prod,
+    GovUkOnceFullEnvironments.Prod,
+  ];
   return !nonEphemeral.includes(environment as GovUkOnceEnvironments);
 };
 
