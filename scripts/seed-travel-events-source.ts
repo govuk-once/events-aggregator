@@ -735,6 +735,76 @@ export async function scanOrphans(
   return orphans;
 }
 
+// ── List ─────────────────────────────────────────────────────────────────────
+
+export interface SourceSummary {
+  sourceGroup: string;
+  sourceEnabled: boolean;
+  lastUpdated: string;
+}
+
+export async function listSources(
+  documentClient: DynamoDBDocumentClient,
+  config: Config,
+): Promise<SourceSummary[]> {
+  const sources: SourceSummary[] = [];
+  let exclusiveStartKey: Record<string, unknown> | undefined;
+  let pages = 0;
+
+  do {
+    if (pages >= MAX_SCAN_PAGES) {
+      console.warn(
+        ` list stopped after ${MAX_SCAN_PAGES} pages — results are incomplete`,
+      );
+      break;
+    }
+
+    const result = await documentClient.send(
+      new ScanCommand({
+        TableName: config.tableName,
+        FilterExpression: '#sourceNamespace = :namespace',
+        ProjectionExpression: '#sourceGroup, #sourceEnabled, #lastUpdated',
+        ExpressionAttributeNames: {
+          '#sourceNamespace': 'sourceNamespace',
+          '#sourceGroup': 'sourceGroup',
+          '#sourceEnabled': 'sourceEnabled',
+          '#lastUpdated': 'lastUpdated',
+        },
+        ExpressionAttributeValues: { ':namespace': SOURCE_NAMESPACE },
+        ExclusiveStartKey: exclusiveStartKey,
+      }),
+    );
+
+    for (const item of result.Items ?? []) {
+      sources.push({
+        sourceGroup: item.sourceGroup as string,
+        sourceEnabled: (item.sourceEnabled as boolean) ?? false,
+        lastUpdated: (item.lastUpdated as string) ?? '',
+      });
+    }
+
+    exclusiveStartKey = result.LastEvaluatedKey;
+    pages++;
+  } while (exclusiveStartKey);
+
+  return sources.sort((a, b) => a.sourceGroup.localeCompare(b.sourceGroup));
+}
+
+function printSourceList(sources: SourceSummary[]): void {
+  const colWidth = Math.max(
+    ...sources.map((s) => s.sourceGroup.length),
+    'Country'.length,
+  );
+  console.log(`${'Country'.padEnd(colWidth)}  State     Last Updated`);
+  console.log(`${'-'.repeat(colWidth)}  --------  -------------------------`);
+  for (const source of sources) {
+    const state = source.sourceEnabled ? 'enabled ' : 'disabled';
+    console.log(
+      `${source.sourceGroup.padEnd(colWidth)}  ${state}  ${source.lastUpdated}`,
+    );
+  }
+}
+
 // ── Main ────────────────────────────────────────────────────────────────────
 
 export async function main(argv?: string[]): Promise<void> {
@@ -813,6 +883,9 @@ export async function main(argv?: string[]): Promise<void> {
 
   if (plan.toInsert.length === 0 && plan.toUpdate.length === 0) {
     console.log('Nothing to do — table is already up-to-date.');
+    console.log('');
+    console.log('Current state:');
+    printSourceList(await listSources(documentClient, config));
     return;
   }
 
@@ -871,6 +944,11 @@ export async function main(argv?: string[]): Promise<void> {
   }
   if (patched > 0) parts.push(`${patched} row(s) patched`);
   console.log(`Seed complete — ${parts.join(', ')}.`);
+
+  console.log('');
+  console.log('Final state:');
+  const finalSources = await listSources(documentClient, config);
+  printSourceList(finalSources);
 }
 
 /**
