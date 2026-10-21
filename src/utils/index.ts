@@ -13,6 +13,9 @@ import { getSecret } from '@aws-lambda-powertools/parameters/secrets';
 export const SEARCH_BASE = 'https://www.gov.uk/api/search.json';
 export const CONTENT_API = 'https://www.gov.uk/api/content';
 const MAX_RESPONSE_BYTES = 5 * 1024 * 1024;
+const HEADERS = {
+  'User-Agent': 'govuk-once/events-aggregator',
+};
 
 function buildSearchUrl(fromTimestamp: string): string {
   const params = new URLSearchParams();
@@ -32,7 +35,7 @@ export const getTravelChangesSince = async (
 ): Promise<SearchResponse> => {
   const url = buildSearchUrl(timestamp);
 
-  const response = await fetch(url);
+  const response = await fetch(url, { headers: HEADERS });
 
   if (!response.ok) {
     throw new Error(`Search api returned a ${response.status}`);
@@ -51,7 +54,7 @@ export const getTravelChangesSince = async (
 export const getCountryChanges = async (
   url: string,
 ): Promise<CountryResponse> => {
-  const response = await fetch(url);
+  const response = await fetch(url, { headers: HEADERS });
 
   if (!response.ok) {
     throw new Error(`Content api returned a ${response.status}`);
@@ -144,12 +147,13 @@ export const getNotificationPayload = (
   const segments = (...segments: string[]) => segments.join(`\n\n`);
   const link = (url: string, label: string) => `[${url}](${label})`;
 
+  const id = hashToUuidV4({
+    dbEntry,
+    schedule,
+    channel,
+  });
   return {
-    GroupNotificationID: hashToUuidV4({
-      dbEntry,
-      schedule,
-      channel,
-    }),
+    GroupNotificationID: id,
     Namespace: dbEntry.namespace,
     Group: dbEntry.group,
     Subgroup: schedule,
@@ -167,6 +171,12 @@ export const getNotificationPayload = (
     ),
     DeeplinkURL: `govuk://app.gov.uk/web?url=https://www.gov.uk/foreign-travel-advice/${dbEntry.group}`,
     Channel: channel,
+    CampaignID: [
+      dbEntry.group,
+      schedule,
+      channel,
+      `@${dbEntry.eventTimestamp}`,
+    ].join(`/`),
   };
 };
 
