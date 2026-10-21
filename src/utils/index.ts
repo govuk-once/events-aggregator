@@ -72,6 +72,9 @@ export const getStartTime = (
   const date = new Date(timestamp);
 
   switch (schedule) {
+    case '15m':
+      date.setUTCMinutes(date.getUTCMinutes() - 15);
+      break;
     case 'hourly':
       date.setUTCHours(date.getUTCHours() - 1);
       break;
