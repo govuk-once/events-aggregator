@@ -50,7 +50,9 @@ export type ApiResult<T> =
 // ---------------------------------------------------------------------------
 
 const KEEP_ALIVE_TIMEOUT_MS = 60_000;
-const CONNECT_TIMEOUT_MS = 10_000;
+const CONNECT_TIMEOUT_MS = 5_000;
+const HEADERS_TIMEOUT_MS = 25_000;
+const BODY_TIMEOUT_MS = 25_000;
 
 // ---------------------------------------------------------------------------
 // TLS dispatcher
@@ -75,6 +77,8 @@ const cacheKey = (config: MtlsClientConfig): string => {
 const createAgent = (config: MtlsClientConfig): Agent =>
   new Agent({
     keepAliveTimeout: KEEP_ALIVE_TIMEOUT_MS,
+    headersTimeout: HEADERS_TIMEOUT_MS,
+    bodyTimeout: BODY_TIMEOUT_MS,
     connect: {
       cert: config.clientCert,
       key: config.clientKey,
@@ -163,7 +167,10 @@ export const createUnsMtlsClient = (config: MtlsClientConfig) => {
     ...(config.apiKey ? { 'X-API-KEY': config.apiKey } : {}),
   };
 
-  const send = <T>(path: string, init: RequestInit): Promise<ApiResult<T>> => {
+  const send = async <T>(
+    path: string,
+    init: RequestInit,
+  ): Promise<ApiResult<T>> => {
     logger.info(`Sending request`, {
       path: path,
       method: init.method,
@@ -179,7 +186,12 @@ export const createUnsMtlsClient = (config: MtlsClientConfig) => {
       dispatcher: dispatcher as never,
     };
 
-    return toApiResult(fetch(`${config.apiUrl}${path}`, requestInit));
+    try {
+      return await toApiResult(fetch(`${config.apiUrl}${path}`, requestInit));
+    } catch (err) {
+      agentCache.delete(cacheKey(config));
+      throw err;
+    }
   };
 
   logger.info({

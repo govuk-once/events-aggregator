@@ -238,10 +238,10 @@ export class EventsAggregatorStack extends cdk.Stack {
         ),
         codeSigningConfig,
         description: 'Polls the content api and sends events to UNS',
-        duration: 10,
+        duration: 30,
         key: logKey,
         handler: 'index.handler',
-        memorySize: 128,
+        memorySize: 512,
         name: 'travel-ingestion',
         environment: {
           SSM_PREFIX: this.sharedNamespace,
@@ -306,10 +306,10 @@ export class EventsAggregatorStack extends cdk.Stack {
         code: lambda.Code.fromAsset(join(__dirname, '../../dist/single-event')),
         codeSigningConfig,
         description: 'sends a single event to UNS',
-        duration: 10,
+        duration: 30,
         key: logKey,
         handler: 'index.handler',
-        memorySize: 128,
+        memorySize: 512,
         name: 'single-event',
         environment: {
           SSM_PREFIX: this.sharedNamespace,
@@ -347,10 +347,10 @@ export class EventsAggregatorStack extends cdk.Stack {
         ),
         codeSigningConfig,
         description: 'Processes the events from the SQS queue',
-        duration: 10,
+        duration: 30,
         key: logKey,
         handler: 'index.handler',
-        memorySize: 128,
+        memorySize: 512,
         name: 'eventProcessing',
         retentionDays: logs.RetentionDays.ONE_WEEK,
         runtime: cdk.aws_lambda.Runtime.NODEJS_24_X,
@@ -379,7 +379,7 @@ export class EventsAggregatorStack extends cdk.Stack {
         duration: 30,
         key: logKey,
         handler: 'index.handler',
-        memorySize: 128,
+        memorySize: 512,
         name: 'aggregated-event',
         environment: {
           SSM_PREFIX: this.sharedNamespace,
@@ -411,25 +411,23 @@ export class EventsAggregatorStack extends cdk.Stack {
       }),
     );
 
-    // EventBridge schedules — daily and weekly only
-    (['daily', 'weekly'] as const).forEach((frequency) => {
-      eventBridgeFactory.createScheduledRule(`${frequency}-digest-schedule`, {
-        name: `${frequency.toUpperCase()}DigestSchedule`,
-        targetFunction: aggregatedEventLambda,
-        frequency,
-        enabled: true,
-        eventPayload: {
-          triggeredAt: events.EventField.fromPath('$.time'),
-          schedule: frequency,
-        },
-      });
-    });
+    // Currently the aggrevated event lambda is out of scope
+    // // // // EventBridge schedules — daily and weekly only
+    // // // (['daily', 'weekly'] as const).forEach((frequency) => {
+    // // //   eventBridgeFactory.createScheduledRule(`${frequency}-digest-schedule`, {
+    // // //     name: `${frequency.toUpperCase()}DigestSchedule`,
+    // // //     targetFunction: aggregatedEventLambda,
+    // // //     frequency,
+    // // //     enabled: true,
+    // // //     eventPayload: {
+    // // //       triggeredAt: events.EventField.fromPath('$.time'),
+    // // //       schedule: frequency,
+    // // //     },
+    // // //   });
+    // // // });
 
-    for (const frequency of [
-      'hourly',
-      'daily',
-      'weekly',
-    ] as ScheduleFrequency[]) {
+    // Fetch travel alerts every 15min
+    for (const frequency of ['15m'] as ScheduleFrequency[]) {
       eventBridgeFactory.createScheduledRule(`${frequency}-schedule`, {
         name: `${frequency.toUpperCase()}TravelSchedule`,
         targetFunction: travelIngestionLambda,
