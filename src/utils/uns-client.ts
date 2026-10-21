@@ -2,7 +2,7 @@ import type { FetchInit, NotificationPayload } from '@/types';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { getSecret } from '@aws-lambda-powertools/parameters/secrets';
 import { createHash } from 'node:crypto';
-import { Agent } from 'undici';
+import { Agent, fetch } from 'undici';
 
 const logger = new Logger();
 
