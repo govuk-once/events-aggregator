@@ -32,6 +32,9 @@ on:
       DEPLOYMENT_ROLE:
         description: 'AWS deployment role to assume'
         required: true
+      SM_SECRETS_TO_UPDATE:
+        description: 'JSON dict of Secrets Manager secrets to update (e.g. {"uns-api-key":"value"})'
+        required: false
 
   workflow_dispatch:
     inputs:
@@ -112,6 +115,7 @@ jobs:
         run: pnpm run cdk:predeploy
         env:
           SSM_PARAMETERS_TO_UPDATE: ${{ vars.SSM_PARAMETERS_TO_UPDATE }}
+          SM_SECRETS_TO_UPDATE: ${{ secrets.SM_SECRETS_TO_UPDATE }}
 
       - name: Build Application
         run: pnpm run build

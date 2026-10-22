@@ -1,4 +1,8 @@
 import {
+  PutSecretValueCommand,
+  SecretsManagerClient,
+} from '@aws-sdk/client-secrets-manager';
+import {
   DeleteParametersCommand,
   GetParameterCommand,
   PutParameterCommand,
@@ -41,16 +45,27 @@ export const configurableParameters: Record<string, string> = {
   'uns-mtls-cert-arn': 'uns-mtls-cert-arn-placeholder',
   'uns-mtls-key-arn': 'uns-mtls-key-arn-placeholder',
   'uns-api-url': 'uns-api-url-placeholder',
-  'uns-api-key': 'uns-api-key-placeholder',
   'uns-kms-key-arn': 'uns-kms-key-arn-placeholder',
   ...slackChannelParameters(releaseNotificationSsmKeys),
   ...slackChannelParameters(alertsNotificationSsmKeys),
 };
 
-export const parametersForDeletion: string[] = [];
+// uns-api-key was previously seeded as an SSM parameter but the runtime reads
+// it from Secrets Manager via UNS_API_KEY_ARN.  Remove it from SSM.
+export const parametersForDeletion: string[] = ['uns-api-key'];
+
+// Secrets Manager secrets that can be updated via SM_SECRETS_TO_UPDATE.
+// Keys are short names; values are the full SM secret names created by CDK.
+export const configurableSecrets: Record<string, string> = {
+  'uns-api-key': `ea-${env}/uns-api-key`,
+};
 
 const SSM_PARAMETERS_TO_UPDATE = JSON.parse(
-  process.env.SSM_PARAMETERS_TO_UPDATE ?? '{}',
+  process.env.SSM_PARAMETERS_TO_UPDATE || '{}',
+) as Record<string, string>;
+
+const SM_SECRETS_TO_UPDATE = JSON.parse(
+  process.env.SM_SECRETS_TO_UPDATE || '{}',
 ) as Record<string, string>;
 
 await (async () => {
@@ -152,5 +167,36 @@ await (async () => {
         Names: keysToDelete,
       }),
     );
+  }
+
+  console.log(`\nProcessing Secrets Manager updates`);
+  const smClient = new SecretsManagerClient();
+
+  for (const [key, newValue] of Object.entries(SM_SECRETS_TO_UPDATE)) {
+    const secretName = configurableSecrets[key];
+
+    if (!secretName) {
+      console.warn(
+        `SM_SECRETS_TO_UPDATE contains unknown key: ${key} - skipping`,
+      );
+      continue;
+    }
+
+    process.stdout.write(`Updating ${secretName}  `.padEnd(96, ' '));
+
+    const [, putSecretError] = await unwrap(
+      smClient.send(
+        new PutSecretValueCommand({
+          SecretId: secretName,
+          SecretString: newValue,
+        }),
+      ),
+    );
+
+    if (putSecretError) {
+      console.error(` - Failed to update secret: ${key}`);
+    } else {
+      console.log(` - Secret updated: ${key}`);
+    }
   }
 })();
