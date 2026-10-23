@@ -66,6 +66,7 @@ jobs:
       VERSION: ${{needs.Release.outputs.semVer}}@${{ github.sha }}
     secrets:
       DEPLOYMENT_ROLE: ${{ secrets.DEV_DEPLOYMENT_ROLE }}
+      SM_SECRETS_TO_UPDATE: ${{ secrets.SM_SECRETS_TO_UPDATE }}
 
   SeedDev:
     name: Seed dev data
@@ -91,6 +92,7 @@ jobs:
       VERSION: ${{needs.Release.outputs.semVer}}@${{ github.sha }}
     secrets:
       DEPLOYMENT_ROLE: ${{ secrets.STAGING_DEPLOYMENT_ROLE }}
+      SM_SECRETS_TO_UPDATE: ${{ secrets.SM_SECRETS_TO_UPDATE }}
 
   SeedStaging:
     name: Seed staging data
@@ -116,6 +118,7 @@ jobs:
       VERSION: ${{needs.Release.outputs.semVer}}@${{ github.sha }}
     secrets:
       DEPLOYMENT_ROLE: ${{ secrets.PRODUCTION_DEPLOYMENT_ROLE }}
+      SM_SECRETS_TO_UPDATE: ${{ secrets.SM_SECRETS_TO_UPDATE }}
 
   SeedProduction:
     name: Seed production data
