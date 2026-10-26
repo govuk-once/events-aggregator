@@ -1,113 +1,87 @@
-## Event Aggregator
+# Events Aggregator
 
-The events aggregator manages the dispatching of events to the GOV.UK app
+The Events Aggregator watches GOV.UK for changes that users have asked to be told about and sends them to the [GDS Unified Notification Service](https://github.com/govuk-once/gds-unified-notification-service) (UNS), which delivers them to the GOV.UK app. Today it has one event source: **foreign travel advice**. When the Foreign, Commonwealth & Development Office (FCDO) updates a country's travel advice, subscribers get an instant push notification.
 
+---
 
-## Setup
+## About the project
 
-### Prerequisites
+```text
+EventBridge (hourly/daily/weekly)
+        │
+        ▼
+travel-ingestion ──► incoming-events.fifo ──► eventProcessing ──► eventsStore (DynamoDB)
+   │  (GOV.UK search + content APIs)                                   │ stream
+   ▼                                                                    ▼
+sourceStore (DynamoDB)                                            single-event ──► UNS (instant)
 
-- detect-secrets (for secret detection)
+EventBridge (daily/weekly) ──► aggregated-event ──► eventsStore ──► UNS (digest, not in use)
+```
 
-### Installation
+The Flex platform also reads `sourceStore` and `eventsStore` across accounts, so the app can list countries and their recent changes. The [Architecture](docs/architecture.md) guide has the full picture.
 
-1. Install dependencies:
+### Built with
+
+- [AWS CDK v2](https://docs.aws.amazon.com/cdk/v2/guide/home.html) (TypeScript) for infrastructure
+- Node.js 24 Lambdas bundled with esbuild
+- [AWS Lambda Powertools](https://docs.powertools.aws.dev/lambda/typescript/latest/) for logging, metrics, tracing and batch processing
+- DynamoDB, SQS (FIFO), EventBridge, Secrets Manager, SSM Parameter Store, SNS and Amazon Q Developer in chat applications (Slack alerts)
+- Vitest, ESLint, Prettier, pre-commit, checkov and SonarQube
+
+---
+
+## Installation
+
+The full walkthrough, including AWS access and troubleshooting, is in the [Environment Setup](docs/environment-setup.md) guide. In short:
 
 ```bash
+mise install          # node, pnpm, checkov, pre-commit, detect-secrets
 pnpm install
+pre-commit install    # done automatically by mise's postinstall hook
 ```
 
+---
 
-## Testing
-
-Within this project there are multiple ways of triggering tests, there are also various flags that can adjust certain configurations to provide additional flexibility during development:
-
-```sh
-# Standard unit tests
-pnpm run test
-
-# Unit tests reporting coverage
-pnpm run test:coverage
-```
-
-### Linting
-
-To run the linting checks run
-
-
-```sh
-# Standard lint check
-pnpm run lint:check
-
-# To auto fix linting errors
-pnpm run lint:fix
-```
-
-### Prettier Formatting
-
-To run the prettier formatting
-
-```sh
-# Standard format check
-pnpm run format:check
-
-# To auto fix formatting errors
-pnpm run format:fix
-```
-
-### Pre-commit Hooks
-
-The project uses pre-commit hooks to maintain code quality. Hooks run automatically on `git commit`:
-
-**On every commit:**
-
-- Trailing whitespace removal
-- End-of-file fixing
-- YAML/JSON validation
-- Large file detection
-- Merge conflict detection
-- Private key detection
-- **Secret detection** (passwords, API keys, tokens via `detect-secrets`)
-- Prettier formatting
-- ESLint linting
-- TypeScript type checking
-
-## pre-commit
-
-To run all hooks manually:
+## Development
 
 ```bash
-# Run all pre-commit hooks
+pnpm run test            # all tests (test:unit / test:cdk / test:watch also available)
+pnpm run lint:check      # lint:fix to auto-fix
+pnpm run format:check    # format:fix to auto-fix
+pnpm run types:check
+pnpm run build           # bundle Lambdas into dist/
 pre-commit run --all-files
-
-# Run specific hook
-pre-commit run eslint --all-files
-pre-commit run detect-secrets --all-files
 ```
 
-# Running a local build
+The pre-commit hooks in [`.pre-commit-config.yaml`](.pre-commit-config.yaml) run secret detection, lint, format, type checks, tests, the build, `cdk synth` and checkov on every commit. Test conventions are in [`src/README.md`](src/README.md).
 
-```bash
-# Run all pre-commit hooks
-pnpm build
-```
+---
 
 ## Deployment
 
-Deployments are managed through github workflows, workflow will ensure quality checks run on every PR and when code is merged to ``main`` branch the latest version will be deployed to the development environment.
+Every PR gets its own `pr-<n>` stack. Merges to `main` are released and deployed to development and then staging. Production deployment is coming soon. See the [Deployment Guide](docs/deployment.md) and [Releases and Versioning](docs/releases.md).
 
-### Local Deployment
+---
 
-You can deploy locally to test your code in the aws environment the repo automatically manages adding your username to the stack to create a ephemeral environment for testing your changes.
+## Documentation
 
-```bash
-# run cdk deployment
-pnpm cdk:deploy
-```
+| Guide                                                              | Read it when                                                   |
+| ------------------------------------------------------------------ | -------------------------------------------------------------- |
+| [Architecture](docs/architecture.md)                               | You want to understand how events flow through the service     |
+| [Environment Setup](docs/environment-setup.md)                     | You're setting up a machine for the first time                 |
+| [Developer Reference](docs/developer-reference.md)                 | You're changing Lambda or utility code                         |
+| [Infrastructure Development](docs/infrastructure-development.md)   | You're changing the CDK stack, alarms or SSM parameters        |
+| [Deployment](docs/deployment.md)                                   | You're deploying, or a pipeline has failed                     |
+| [Releases and Versioning](docs/releases.md)                        | You want to know how a version number is chosen                |
+| [Runbooks](docs/runbooks/README.md)                                | An alarm has fired or something is broken                      |
+| [Documentation Guide](docs/documentation-guide.md)                 | You're adding or changing documentation                        |
 
+Each Lambda also has its own README: [`travel-ingestion`](src/travel-ingestion/README.md), [`event-processing`](src/event-processing/README.md), [`single-event`](src/single-event/README.md) and [`aggregated-event`](src/aggregated-event/README.md).
 
+---
 
+## Dependency management
 
-### Travel Alerts
+Dependabot opens weekly grouped PRs for npm and GitHub Actions minor and patch updates, with a 7-day cooldown (see [`.github/dependabot.yml`](.github/dependabot.yml)). pnpm also refuses packages published less than 7 days ago (`minimumReleaseAge` in [`pnpm-workspace.yaml`](pnpm-workspace.yaml)).
 
-The Travel alerts lambda checks the GOV.UK content api's for updates to travel advice before dispatching those updates to UNS to trigger app notifications
+---
