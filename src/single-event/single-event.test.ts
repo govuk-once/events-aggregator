@@ -135,13 +135,13 @@ const mockRequestPayload = [
     Namespace: 'travel',
     Group: 'spain',
     Subgroup: 'instant',
-    NotificationTitle: 'Spain: Travel advice alert',
-    NotificationBody: "There's been a change in country you are interested in",
-    MessageTitle: 'Spain: Travel advice alert',
+    NotificationTitle: 'Spain: Travel advice update',
+    NotificationBody: 'Advice for travelling to Spain has been updated.',
+    MessageTitle: 'Spain: Travel advice update',
     MessageBody:
       '[Go to latest](https://www.gov.uk/foreign-travel-advice/spain)\n' +
       '\n' +
-      'Changes made:\n' +
+      'Change made:\n' +
       'Storm warning\n' +
       '\n' +
       'Time updated:\n' +
@@ -158,13 +158,13 @@ const mockRequestPayload = [
     Namespace: 'travel',
     Group: 'spain',
     Subgroup: 'none',
-    NotificationTitle: 'Spain: Travel advice alert',
-    NotificationBody: "There's been a change in country you are interested in",
-    MessageTitle: 'Spain: Travel advice alert',
+    NotificationTitle: 'Spain: Travel advice update',
+    NotificationBody: 'Advice for travelling to Spain has been updated.',
+    MessageTitle: 'Spain: Travel advice update',
     MessageBody:
       '[Go to latest](https://www.gov.uk/foreign-travel-advice/spain)\n' +
       '\n' +
-      'Changes made:\n' +
+      'Change made:\n' +
       'Storm warning\n' +
       '\n' +
       'Time updated:\n' +
