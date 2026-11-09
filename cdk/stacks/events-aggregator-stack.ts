@@ -1,46 +1,47 @@
 import * as cdk from 'aws-cdk-lib';
-import * as lambda from 'aws-cdk-lib/aws-lambda';
-import * as kms from 'aws-cdk-lib/aws-kms';
-import * as iam from 'aws-cdk-lib/aws-iam';
-import * as logs from 'aws-cdk-lib/aws-logs';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { AttributeType, ITable } from 'aws-cdk-lib/aws-dynamodb';
 import * as events from 'aws-cdk-lib/aws-events';
-import { Construct } from 'constructs';
-import { SigningProfile, Platform } from 'aws-cdk-lib/aws-signer';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import * as kms from 'aws-cdk-lib/aws-kms';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
 import {
   CodeSigningConfig,
   UntrustedArtifactOnDeployment,
 } from 'aws-cdk-lib/aws-lambda';
+import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
+import * as logs from 'aws-cdk-lib/aws-logs';
+import { ISecret, Secret } from 'aws-cdk-lib/aws-secretsmanager';
+import { Platform, SigningProfile } from 'aws-cdk-lib/aws-signer';
+import { ITopic } from 'aws-cdk-lib/aws-sns';
+import { StringParameter } from 'aws-cdk-lib/aws-ssm';
+import { Construct } from 'constructs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { DashboardFactory } from '../cdk_constructs/DashboardFactory';
+import {
+  DynamoDbTableFactory,
+  ITableWithStream,
+} from '../cdk_constructs/DynamoTableFactory';
+import {
+  EventBridgeScheduleFactory,
+  ScheduleFrequency,
+} from '../cdk_constructs/EventBridgeScheduleFactory';
 import { LambdaFactory } from '../cdk_constructs/LambdaFunctionFactory';
+import { NotificationFactory } from '../cdk_constructs/NotificationFactory';
+import { SqsQueueFactory } from '../cdk_constructs/SqsQueueFactory';
+import { StandardServiceAlarmsFactory } from '../cdk_constructs/StandardServiceAlarmsFactory';
 import {
   alertsNotificationSsmKeys,
   getEnvironment,
   getPullRequestNumber,
   getResourceNamePrefix,
   isEphemeralEnvironment,
+  ISlackChannelSsmKeys,
   isPullRequestEnvironment,
   isSandboxEnvironment,
-  ISlackChannelSsmKeys,
   releaseNotificationSsmKeys,
   ssmPlaceholderValue,
 } from '../constants/environments';
-import {
-  EventBridgeScheduleFactory,
-  ScheduleFrequency,
-} from '../cdk_constructs/EventBridgeScheduleFactory';
-import { StringParameter } from 'aws-cdk-lib/aws-ssm';
-import { ISecret, Secret } from 'aws-cdk-lib/aws-secretsmanager';
-import { AttributeType, ITable } from 'aws-cdk-lib/aws-dynamodb';
-import {
-  DynamoDbTableFactory,
-  ITableWithStream,
-} from '../cdk_constructs/DynamoTableFactory';
-import { SqsQueueFactory } from '../cdk_constructs/SqsQueueFactory';
-import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
-import { ITopic } from 'aws-cdk-lib/aws-sns';
-import { NotificationFactory } from '../cdk_constructs/NotificationFactory';
-import { StandardServiceAlarmsFactory } from '../cdk_constructs/StandardServiceAlarmsFactory';
 
 interface ISlackChannelWiring {
   id: string;
@@ -229,70 +230,47 @@ export class EventsAggregatorStack extends cdk.Stack {
       }),
     );
 
-    const travelDigestionLambda = this.lambdaFactory.createLambda(
-      'TravelDigestionLambda',
+    const travelIngestionLambda = this.lambdaFactory.createLambda(
+      'travelIngestionLambda',
       {
         code: lambda.Code.fromAsset(
-          join(__dirname, '../../dist/travel-digestion'),
+          join(__dirname, '../../dist/travel-ingestion'),
         ),
         codeSigningConfig,
         description: 'Polls the content api and sends events to UNS',
-        duration: 10,
+        duration: 30,
         key: logKey,
         handler: 'index.handler',
-        memorySize: 128,
-        name: 'travel-digestion',
+        memorySize: 512,
+        name: 'travel-ingestion',
         environment: {
           SSM_PREFIX: this.sharedNamespace,
           UNS_API_KEY_ARN: unsApiKeySecret.secretArn,
           INCOMING_EVENTS_QUEUE_URL: incomingEventsQueue.queue.queueUrl,
           SOURCE_TABLE_NAME: this.sourceTable.tableName,
-          POWERTOOLS_SERVICE_NAME: 'events-aggregator-travel-digestion',
+          POWERTOOLS_SERVICE_NAME: 'events-aggregator-travel-ingestion',
           POWERTOOLS_METRICS_NAMESPACE: 'EventsAggregator',
         },
         retentionDays: logs.RetentionDays.ONE_WEEK,
-        runtime: cdk.aws_lambda.Runtime.NODEJS_LATEST,
+        runtime: cdk.aws_lambda.Runtime.NODEJS_24_X,
         skipCheckovRule: 'CKV_AWS_59',
       },
     );
 
-    this.grantUnsAccess(travelDigestionLambda, {
+    this.grantUnsAccess(travelIngestionLambda, {
       certArn: certSecret,
       keyArn: keySecret,
       apiKeySecret: unsApiKeySecret,
       kmsKeyArn: kmsArn,
     });
 
-    this.sourceTable.grantReadWriteData(travelDigestionLambda);
-    incomingEventsQueue.queue.grantSendMessages(travelDigestionLambda);
+    this.sourceTable.grantReadWriteData(travelIngestionLambda);
+    incomingEventsQueue.queue.grantSendMessages(travelIngestionLambda);
     incomingEventsQueue.deadLetterQueue.grantSendMessages(
-      travelDigestionLambda,
+      travelIngestionLambda,
     );
 
-    const singleEventLambda = this.lambdaFactory.createLambda(
-      'SingleEventLambda',
-      {
-        code: lambda.Code.fromAsset(join(__dirname, '../../dist/single-event')),
-        codeSigningConfig,
-        description: 'sends a single event to UNS',
-        duration: 10,
-        key: logKey,
-        handler: 'index.handler',
-        memorySize: 128,
-        name: 'single-event',
-        environment: {
-          SSM_PREFIX: this.sharedNamespace,
-          UNS_API_KEY_ARN: unsApiKeySecret.secretArn,
-          POWERTOOLS_SERVICE_NAME: 'events-aggregator-single-event',
-          POWERTOOLS_METRICS_NAMESPACE: 'EventsAggregator',
-        },
-        retentionDays: logs.RetentionDays.ONE_WEEK,
-        runtime: cdk.aws_lambda.Runtime.NODEJS_LATEST,
-        skipCheckovRule: 'CKV_AWS_59',
-      },
-    );
-
-    this.eventStoreTable = this.dynamoFactory.createTableWithStream(
+    const { table: eventStoreTable } = this.dynamoFactory.createTableWithStream(
       'EventStoreTable',
       {
         name: constants.TABLE_NAME_VARIABLE,
@@ -319,12 +297,41 @@ export class EventsAggregatorStack extends cdk.Stack {
         removalPolicy: isEphemeralEnvironment()
           ? cdk.RemovalPolicy.DESTROY
           : cdk.RemovalPolicy.RETAIN,
-        streamConsumer: {
-          streamFunction: singleEventLambda,
-        },
       },
     );
 
+    const singleEventLambda = this.lambdaFactory.createLambda(
+      'SingleEventLambda',
+      {
+        code: lambda.Code.fromAsset(join(__dirname, '../../dist/single-event')),
+        codeSigningConfig,
+        description: 'sends a single event to UNS',
+        duration: 30,
+        key: logKey,
+        handler: 'index.handler',
+        memorySize: 512,
+        name: 'single-event',
+        environment: {
+          SSM_PREFIX: this.sharedNamespace,
+          UNS_API_KEY_ARN: unsApiKeySecret.secretArn,
+          POWERTOOLS_SERVICE_NAME: 'events-aggregator-single-event',
+          POWERTOOLS_METRICS_NAMESPACE: 'EventsAggregator',
+          EVENTS_STORE_TABLE_NAME: eventStoreTable.tableName,
+        },
+        retentionDays: logs.RetentionDays.ONE_WEEK,
+        runtime: cdk.aws_lambda.Runtime.NODEJS_24_X,
+        skipCheckovRule: 'CKV_AWS_59',
+      },
+    );
+
+    this.eventStoreTable = {
+      table: eventStoreTable,
+      eventSource: this.dynamoFactory.addStreamConsumer(eventStoreTable, {
+        streamFunction: singleEventLambda,
+      }),
+    };
+
+    this.grantTableAccess(singleEventLambda, 'write');
     this.grantUnsAccess(singleEventLambda, {
       certArn: certSecret,
       keyArn: keySecret,
@@ -340,13 +347,13 @@ export class EventsAggregatorStack extends cdk.Stack {
         ),
         codeSigningConfig,
         description: 'Processes the events from the SQS queue',
-        duration: 10,
+        duration: 30,
         key: logKey,
         handler: 'index.handler',
-        memorySize: 128,
+        memorySize: 512,
         name: 'eventProcessing',
         retentionDays: logs.RetentionDays.ONE_WEEK,
-        runtime: cdk.aws_lambda.Runtime.NODEJS_LATEST,
+        runtime: cdk.aws_lambda.Runtime.NODEJS_24_X,
         skipCheckovRule: 'CKV_AWS_59',
       },
     );
@@ -372,17 +379,17 @@ export class EventsAggregatorStack extends cdk.Stack {
         duration: 30,
         key: logKey,
         handler: 'index.handler',
-        memorySize: 128,
+        memorySize: 512,
         name: 'aggregated-event',
         environment: {
           SSM_PREFIX: this.sharedNamespace,
           UNS_API_KEY_ARN: unsApiKeySecret.secretArn,
-          EVENT_STORE_TABLE_NAME: this.eventStoreTable.table.tableName,
+          EVENTS_STORE_TABLE_NAME: this.eventStoreTable.table.tableName,
           POWERTOOLS_SERVICE_NAME: 'events-aggregator-aggregated-event',
           POWERTOOLS_METRICS_NAMESPACE: 'EventsAggregator',
         },
         retentionDays: logs.RetentionDays.ONE_WEEK,
-        runtime: cdk.aws_lambda.Runtime.NODEJS_LATEST,
+        runtime: cdk.aws_lambda.Runtime.NODEJS_24_X,
         skipCheckovRule: 'CKV_AWS_59',
       },
     );
@@ -404,35 +411,35 @@ export class EventsAggregatorStack extends cdk.Stack {
       }),
     );
 
-    // EventBridge schedules — daily and weekly only
-    (['daily', 'weekly'] as const).forEach((frequency) => {
-      eventBridgeFactory.createScheduledRule(`${frequency}-digest-schedule`, {
-        name: `${frequency.toUpperCase()}DigestSchedule`,
-        targetFunction: aggregatedEventLambda,
+    // Currently the aggrevated event lambda is out of scope
+    // // // // EventBridge schedules — daily and weekly only
+    // // // (['daily', 'weekly'] as const).forEach((frequency) => {
+    // // //   eventBridgeFactory.createScheduledRule(`${frequency}-digest-schedule`, {
+    // // //     name: `${frequency.toUpperCase()}DigestSchedule`,
+    // // //     targetFunction: aggregatedEventLambda,
+    // // //     frequency,
+    // // //     enabled: true,
+    // // //     eventPayload: {
+    // // //       triggeredAt: events.EventField.fromPath('$.time'),
+    // // //       schedule: frequency,
+    // // //     },
+    // // //   });
+    // // // });
+
+    // Fetch travel alerts every 15min
+    for (const frequency of ['15m'] as ScheduleFrequency[]) {
+      eventBridgeFactory.createScheduledRule(`${frequency}-schedule`, {
+        name: `${frequency.toUpperCase()}TravelSchedule`,
+        targetFunction: travelIngestionLambda,
         frequency,
         enabled: true,
         eventPayload: {
           triggeredAt: events.EventField.fromPath('$.time'),
           schedule: frequency,
+          source: events.EventField.fromPath('$.source'),
         },
       });
-    });
-
-    (['hourly', 'daily', 'weekly'] as ScheduleFrequency[]).map(
-      (frequency: ScheduleFrequency) => {
-        eventBridgeFactory.createScheduledRule(`${frequency}-schedule`, {
-          name: `${frequency.toUpperCase()}TravelSchedule`,
-          targetFunction: travelDigestionLambda,
-          frequency,
-          enabled: true,
-          eventPayload: {
-            triggeredAt: events.EventField.fromPath('$.time'),
-            schedule: frequency,
-            source: events.EventField.fromPath('$.source'),
-          },
-        });
-      },
-    );
+    }
 
     const flexTravelReadRole = new iam.Role(this, 'FlexTravelReadRole', {
       roleName: `${namePrefix}-flex-travel-read`,
@@ -516,7 +523,7 @@ export class EventsAggregatorStack extends cdk.Stack {
       {
         alarmTopic: this.alertsTopic,
         lambdas: [
-          travelDigestionLambda,
+          travelIngestionLambda,
           singleEventLambda,
           eventProcessingLambda,
           aggregatedEventLambda,
@@ -525,6 +532,13 @@ export class EventsAggregatorStack extends cdk.Stack {
         deadLetterQueues: [incomingEventsQueue.deadLetterQueue],
       },
     );
+
+    new DashboardFactory(this, props.serviceName).createOverviewDashboard({
+      ingestion: travelIngestionLambda,
+      processing: eventProcessingLambda,
+      singleEvent: singleEventLambda,
+      aggregatedEvent: aggregatedEventLambda,
+    });
 
     new cdk.CfnOutput(this, 'TravelConfigKey', {
       value: flexConfigKey.keyArn,

@@ -1,12 +1,12 @@
-import { Construct } from 'constructs';
-import { FactoryBase } from './FactoryBase';
-import { INamingProvider } from './namingProviders/INamingProvider';
 import * as cdk from 'aws-cdk-lib';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import { Construct } from 'constructs';
+import { FactoryBase } from './FactoryBase';
+import { INamingProvider } from './namingProviders/INamingProvider';
 
-export type ScheduleFrequency = 'hourly' | 'daily' | 'weekly';
+export type ScheduleFrequency = 'hourly' | 'daily' | 'weekly' | '15m';
 
 class constants {
   static readonly FREQUENCY: ScheduleFrequency = 'daily';
@@ -16,6 +16,7 @@ class constants {
 }
 
 const PRESET_SCHEDULES: Record<ScheduleFrequency, events.Schedule> = {
+  '15m': events.Schedule.rate(cdk.Duration.minutes(15)),
   hourly: events.Schedule.rate(cdk.Duration.hours(1)),
   daily: events.Schedule.rate(cdk.Duration.days(1)),
   weekly: events.Schedule.rate(cdk.Duration.days(7)),

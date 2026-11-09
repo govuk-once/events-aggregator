@@ -5,9 +5,9 @@ import {
   processPartialResponse,
 } from '@aws-lambda-powertools/batch';
 import { Logger } from '@aws-lambda-powertools/logger';
-import { SQSHandler, SQSRecord } from 'aws-lambda';
 import { AttributeValue, DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { SQSHandler, SQSRecord } from 'aws-lambda';
 
 const client = new DynamoDBClient({});
 const documentClient = DynamoDBDocumentClient.from(client, {
@@ -38,11 +38,16 @@ export const parseSqsMessage = (record: SQSRecord) => {
     return item;
   } catch (error) {
     logger.error('Unable to parse the SQS payload', { error });
-    throw new Error('Unable to parse the SQS payload');
+    throw new Error('Unable to parse the SQS payload', { cause: error });
   }
 };
 
 const recordHandler = async (record: SQSRecord): Promise<void> => {
+  logger.info({
+    message: `Request received`,
+    record,
+  });
+
   const item = parseSqsMessage(record);
 
   try {

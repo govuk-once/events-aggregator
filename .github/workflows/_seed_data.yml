@@ -99,6 +99,7 @@ jobs:
           SCRIPT_PATH: ${{ inputs.script-path }}
           DRY_RUN: ${{ inputs.dry-run }}
           CHECK_ORPHANS: ${{ inputs.check-orphans }}
+          COUNTRY_SOURCES_ENABLED: ${{ vars.COUNTRY_SOURCES_ENABLED }}
         run: |
           set -euo pipefail
           ARGS=()

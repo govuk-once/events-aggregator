@@ -1,6 +1,10 @@
 import { Source } from '@/types/source';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import {
+  DynamoDBDocumentClient,
+  QueryCommand,
+  UpdateCommand,
+} from '@aws-sdk/lib-dynamodb';
 
 const client = new DynamoDBClient({ region: 'eu-west-2' });
 const documentClient = DynamoDBDocumentClient.from(client, {
@@ -24,6 +28,22 @@ const getEventSourceByCompositeKey = async (
   );
 
   return (result.Items ?? []) as Source[];
+};
+
+export const updateSourceLastUpdated = async (
+  source: Pick<Source, 'sourceID' | 'compositeKey'>,
+  tableName: string,
+  lastUpdated: string,
+): Promise<void> => {
+  await documentClient.send(
+    new UpdateCommand({
+      TableName: tableName,
+      Key: { sourceID: source.sourceID, compositeKey: source.compositeKey },
+      UpdateExpression: 'SET #lastUpdated = :lastUpdated',
+      ExpressionAttributeNames: { '#lastUpdated': 'lastUpdated' },
+      ExpressionAttributeValues: { ':lastUpdated': lastUpdated },
+    }),
+  );
 };
 
 export const getEventSourceByCompositeKeys = async (

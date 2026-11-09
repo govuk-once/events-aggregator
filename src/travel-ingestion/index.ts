@@ -1,4 +1,7 @@
-import { getEventSourceByCompositeKeys } from '@/services/eventSources';
+import {
+  getEventSourceByCompositeKeys,
+  updateSourceLastUpdated,
+} from '@/services/eventSources';
 import type { TravelAlertScheduleEvent } from '@/types';
 import {
   getCountryChanges,
@@ -27,10 +30,12 @@ type EventSource = Awaited<
 const scheduleContext = (
   event: TravelAlertScheduleEvent,
   startTime: StartTime,
+  debugSuffix?: string,
 ) => ({
   triggeredAt: event.triggeredAt,
   schedule: event.schedule,
   startTime,
+  debugSuffix,
 });
 
 type ScheduleContext = ReturnType<typeof scheduleContext>;
@@ -58,6 +63,11 @@ const publishCountryChanges = async (
 ): Promise<void> => {
   for (const change of changes) {
     const incomingEvent = travelEventToIncomingEvent(change, countryDetails);
+    logger.info(`Publishing event`, {
+      country: incomingEvent.group,
+      note: change.note,
+      timestamp: change.public_timestamp,
+    });
     await sendIncomingEventToQueue(
       incomingEvent,
       process.env.INCOMING_EVENTS_QUEUE_URL as string,
@@ -70,10 +80,16 @@ const processSource = async (
   source: EventSource,
   startTime: StartTime,
   context: ScheduleContext,
+  tableName: string,
 ): Promise<void> => {
   const country = await segment(tracer, 'GetCountryChanges', async () =>
     getCountryChanges(source.URL),
   );
+
+  const latestTimestamp = country.details.change_history[0]?.public_timestamp;
+  if (latestTimestamp) {
+    await updateSourceLastUpdated(source, tableName, latestTimestamp);
+  }
 
   const countryChanges = getEventsFromCountry(country, startTime);
 
@@ -88,7 +104,16 @@ const processSource = async (
   await segment(tracer, 'PublishCountryChanges', async (subsegment) => {
     subsegment.addAnnotation('EventCount', countryChanges.length);
 
-    await publishCountryChanges(countryChanges, country.details);
+    await publishCountryChanges(
+      countryChanges.map((change) => {
+        // If debugSuffix is set within the event - append that to the message content - to be use in testing only
+        change.note = context.debugSuffix
+          ? `${change.note}${context.debugSuffix}`
+          : change.note;
+        return change;
+      }),
+      country.details,
+    );
   });
 
   metrics.addMetric(
@@ -99,9 +124,19 @@ const processSource = async (
 };
 
 export const handler = async (event: TravelAlertScheduleEvent) => {
+  logger.info({
+    message: `Request received`,
+    event,
+  });
   try {
     const startTime = getStartTime(event.triggeredAt, event.schedule);
-    const context = scheduleContext(event, startTime);
+    const context = scheduleContext(event, startTime, event.debugSuffix);
+
+    logger.info({
+      message: `Preparing query`,
+      context,
+      startTime,
+    });
     const travelChanges = await segment(
       tracer,
       'GetTravelChanges',
@@ -111,6 +146,10 @@ export const handler = async (event: TravelAlertScheduleEvent) => {
         return getTravelChangesSince(startTime);
       },
     );
+    logger.info({
+      message: `Retrieved changes`,
+      travelChanges,
+    });
 
     const resultCount = travelChanges.results.length;
 
@@ -158,9 +197,10 @@ export const handler = async (event: TravelAlertScheduleEvent) => {
 
     // A disabled or empty source skips that country only — it must not stop
     // the countries queued behind it.
+    const tableName = process.env.SOURCE_TABLE_NAME as string;
     for (const source of sources) {
       if (source.sourceEnabled) {
-        await processSource(source, startTime, context);
+        await processSource(source, startTime, context, tableName);
       }
     }
 

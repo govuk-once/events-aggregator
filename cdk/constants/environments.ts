@@ -56,7 +56,12 @@ export const isSandboxEnvironment = (): boolean =>
 // identify if is ephemeral environment
 export const isEphemeralEnvironment = (): boolean => {
   const environment = getEnvironment();
-  const nonEphemeral = [GovUkOnceEnvironments.Stag, GovUkOnceEnvironments.Prod];
+  const nonEphemeral = [
+    GovUkOnceEnvironments.Stag,
+    GovUkOnceFullEnvironments.Stag,
+    GovUkOnceEnvironments.Prod,
+    GovUkOnceFullEnvironments.Prod,
+  ];
   return !nonEphemeral.includes(environment as GovUkOnceEnvironments);
 };
 
@@ -65,11 +70,6 @@ export const getResourceNamePrefix = (): string => {
   const environment = getEnvironment();
   const prefix = `${environment}-${serviceMetadata.serviceName}`.toLowerCase();
   return prefix.substring(0, 40);
-};
-
-// generate a 5 string alphanumeric unique id
-export const generateUniqueId = (): string => {
-  return Math.random().toString(36).substring(2, 7);
 };
 
 // SSM keys, in the shared namespace, identifying a Slack channel

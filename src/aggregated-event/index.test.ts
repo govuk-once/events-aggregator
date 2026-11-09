@@ -1,3 +1,13 @@
+import { Logger } from '@aws-lambda-powertools/logger';
+import { MetricUnit } from '@aws-lambda-powertools/metrics';
+import { getSecret } from '@aws-lambda-powertools/parameters/secrets';
+import {
+  DynamoDBDocumentClient,
+  QueryCommand,
+  UpdateCommand,
+} from '@aws-sdk/lib-dynamodb';
+import { mockClient } from 'aws-sdk-client-mock';
+import nock from 'nock';
 import {
   afterAll,
   afterEach,
@@ -7,19 +17,7 @@ import {
   it,
   vi,
 } from 'vitest';
-import { Logger } from '@aws-lambda-powertools/logger';
-import { MetricUnit } from '@aws-lambda-powertools/metrics';
-import { mockClient } from 'aws-sdk-client-mock';
-import {
-  DynamoDBDocumentClient,
-  QueryCommand,
-  UpdateCommand,
-} from '@aws-sdk/lib-dynamodb';
-import nock from 'nock';
-import { getSecret } from '@aws-lambda-powertools/parameters/secrets';
 
-import { metrics } from '../utils/observability';
-import type { DynamoEvent, DigestScheduleEvent } from '../types/event';
 import {
   buildCountryDigestMarkdown,
   buildDigestPayload,
@@ -27,8 +25,10 @@ import {
   groupEventsByCountry,
   handler,
 } from '.';
+import type { DigestScheduleEvent, DynamoEvent } from '../types/event';
+import { metrics } from '../utils/observability';
 
-vi.stubEnv('EVENT_STORE_TABLE_NAME', 'event-store-table');
+vi.stubEnv('EVENTS_STORE_TABLE_NAME', 'event-store-table');
 vi.stubEnv('SSM_PREFIX', 'prefix');
 vi.stubEnv('UNS_API_KEY_ARN', 'api-key');
 

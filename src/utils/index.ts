@@ -6,12 +6,16 @@ import type {
   SearchResponse,
 } from '@/types';
 import type { DynamoEvent } from '@/types/event';
+import { createHash } from 'node:crypto';
 
 import { getSecret } from '@aws-lambda-powertools/parameters/secrets';
 
 export const SEARCH_BASE = 'https://www.gov.uk/api/search.json';
 export const CONTENT_API = 'https://www.gov.uk/api/content';
 const MAX_RESPONSE_BYTES = 5 * 1024 * 1024;
+const HEADERS = {
+  'User-Agent': 'govuk-once/events-aggregator',
+};
 
 function buildSearchUrl(fromTimestamp: string): string {
   const params = new URLSearchParams();
@@ -31,7 +35,7 @@ export const getTravelChangesSince = async (
 ): Promise<SearchResponse> => {
   const url = buildSearchUrl(timestamp);
 
-  const response = await fetch(url);
+  const response = await fetch(url, { headers: HEADERS });
 
   if (!response.ok) {
     throw new Error(`Search api returned a ${response.status}`);
@@ -50,7 +54,7 @@ export const getTravelChangesSince = async (
 export const getCountryChanges = async (
   url: string,
 ): Promise<CountryResponse> => {
-  const response = await fetch(url);
+  const response = await fetch(url, { headers: HEADERS });
 
   if (!response.ok) {
     throw new Error(`Content api returned a ${response.status}`);
@@ -68,6 +72,9 @@ export const getStartTime = (
   const date = new Date(timestamp);
 
   switch (schedule) {
+    case '15m':
+      date.setUTCMinutes(date.getUTCMinutes() - 15);
+      break;
     case 'hourly':
       date.setUTCHours(date.getUTCHours() - 1);
       break;
@@ -82,21 +89,97 @@ export const getStartTime = (
   return date.toISOString();
 };
 
-type InstantSchedule = 'instant';
+type InstantSchedule = 'instant' | 'none';
 type Frequency = ScheduleFrequency | InstantSchedule;
+
+export const getFormattedDate = (iso8601Timestamp: string) => {
+  function getOrdinalSuffix(day: number): string {
+    if (day > 3 && day < 21) return 'th';
+    switch (day % 10) {
+      case 1:
+        return 'st';
+      case 2:
+        return 'nd';
+      case 3:
+        return 'rd';
+      default:
+        return 'th';
+    }
+  }
+
+  const date = new Date(iso8601Timestamp);
+
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZoneName: 'short',
+  });
+
+  const parts = Object.fromEntries(
+    formatter.formatToParts(date).map((p) => [p.type, p.value]),
+  );
+
+  const dayNum = parseInt(parts.day, 10);
+  const suffix = getOrdinalSuffix(dayNum);
+  const period = parts.dayPeriod
+    ? parts.dayPeriod.toLowerCase().replace(/[^a-z]/g, '')
+    : '';
+  const tz = parts.timeZoneName === 'BST' ? 'BST' : 'GMT';
+
+  return `${parts.hour}:${parts.minute}${period}, ${dayNum}${suffix} ${parts.month} ${parts.year} (${tz})`;
+};
+
+const titleCase = (str: string) =>
+  str
+    .toLowerCase()
+    .split(/([ -])/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join('');
 
 export const getNotificationPayload = (
   dbEntry: DynamoEvent,
   schedule: Frequency,
-): NotificationPayload | null => {
+  channel: 'PUSH_NOTIFICATION_AND_MESSAGE_CENTRE' | 'MESSAGE_CENTRE_ONLY',
+): NotificationPayload => {
+  const lines = (...lines: string[]) => lines.join(`\n`);
+  const segments = (...segments: string[]) => segments.join(`\n\n`);
+  const link = (url: string, label: string) => `[${url}](${label})`;
+
+  const id = hashToUuidV4({
+    dbEntry,
+    schedule,
+    channel,
+  });
   return {
+    GroupNotificationID: id,
     Namespace: dbEntry.namespace,
     Group: dbEntry.group,
     Subgroup: schedule,
-    NotificationTitle: `Travel Advice - ${dbEntry.group?.toLocaleUpperCase()}`,
-    NotificationBody: `There's been a change in country you are interested in`,
-    MessageTitle: `${dbEntry.group?.toLocaleUpperCase()} Travel Advice`,
-    MessageBody: dbEntry.eventNote,
+    NotificationTitle: `${titleCase(dbEntry.group)}: Travel advice update`,
+    NotificationBody: `Advice for travelling to ${titleCase(dbEntry.group)} has been updated.`,
+    MessageTitle: `${titleCase(dbEntry.group)}: Travel advice update`,
+    MessageBody: segments(
+      link(
+        `Go to latest`,
+        `https://www.gov.uk/foreign-travel-advice/${dbEntry.group}`,
+      ),
+      lines(`Change made:`, dbEntry.eventNote),
+      lines(`Time updated:`, getFormattedDate(dbEntry.eventTimestamp)),
+      link(`Manage your countries`, `govuk://app.gov.uk/travelalerts/edit`),
+    ),
+    DeeplinkURL: `govuk://app.gov.uk/web?url=https://www.gov.uk/foreign-travel-advice/${dbEntry.group}`,
+    Channel: channel,
+    CampaignID: [
+      dbEntry.group,
+      schedule,
+      channel,
+      `@${dbEntry.eventTimestamp}`,
+    ].join(`/`),
   };
 };
 
@@ -124,3 +207,15 @@ export const getEventsFromCountry = (
 
   return countryChanges;
 };
+
+export function hashToUuidV4<T extends object>(input: T): string {
+  const concentratedObject = JSON.stringify(Object.values(input));
+
+  const hash = createHash('sha256').update(concentratedObject).digest();
+  const buffer = hash.subarray(0, 16);
+  buffer[6] = (buffer[6] & 0x0f) | 0x40;
+  buffer[8] = (buffer[8] & 0x3f) | 0x80;
+  const hex = buffer.toString('hex');
+
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+}

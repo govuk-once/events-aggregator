@@ -2,7 +2,7 @@ import type { AwsCredentialIdentity } from '@aws-sdk/types';
 
 export type FetchInit = RequestInit & { dispatcher?: unknown };
 
-export type ScheduleFrequency = 'hourly' | 'daily' | 'weekly';
+export type ScheduleFrequency = '15m' | 'hourly' | 'daily' | 'weekly';
 
 export type SearchResponseCountry = {
   link: string;
@@ -33,10 +33,12 @@ export type CountryDetails = {
 };
 
 export type CountryResponse = {
+  public_updated_at?: string;
   details: CountryDetails;
 };
 
 export type NotificationPayload = {
+  GroupNotificationID?: string;
   Namespace: string;
   Group: string;
   Subgroup: string;
@@ -44,11 +46,15 @@ export type NotificationPayload = {
   NotificationBody: string;
   MessageTitle: string;
   MessageBody: string;
+  DeeplinkURL?: string;
+  Channel?: 'PUSH_NOTIFICATION_AND_MESSAGE_CENTRE' | 'MESSAGE_CENTRE_ONLY';
+  CampaignID?: string;
 };
 
 export type TravelAlertScheduleEvent = {
   triggeredAt: string;
   schedule: ScheduleFrequency;
+  debugSuffix?: string;
 };
 
 export interface ConsumerConfig {

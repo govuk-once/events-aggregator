@@ -38,6 +38,7 @@ jobs:
       notify-release: false
     secrets:
       DEPLOYMENT_ROLE: ${{ secrets.DEV_DEPLOYMENT_ROLE }}
+      SM_SECRETS_TO_UPDATE: ${{ secrets.SM_SECRETS_TO_UPDATE }}
 
   SeedEphemeral:
     name: Seed Ephemeral data

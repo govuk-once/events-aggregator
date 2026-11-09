@@ -1,12 +1,12 @@
-import { Construct } from 'constructs';
-import { FactoryBase } from './FactoryBase';
-import { INamingProvider } from './namingProviders/INamingProvider';
 import * as cdk from 'aws-cdk-lib';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
-import * as sources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as destinations from 'aws-cdk-lib/aws-lambda-destinations';
+import * as sources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
+import { Construct } from 'constructs';
+import { FactoryBase } from './FactoryBase';
+import { INamingProvider } from './namingProviders/INamingProvider';
 
 class constants {
   static readonly ATTRIBUTE_TYPE: dynamodb.AttributeType =
@@ -139,7 +139,7 @@ export interface ITableProperties {
  */
 export interface ITableWithStream {
   table: dynamodb.Table;
-  eventSource: sources.DynamoEventSource;
+  eventSource?: sources.DynamoEventSource;
 }
 
 /**
@@ -208,7 +208,7 @@ export class DynamoDbTableFactory extends FactoryBase {
    */
   public createTableWithStream(
     id: string,
-    props: ITableProperties & { streamConsumer: IStreamConsumerProperties },
+    props: ITableProperties & { streamConsumer?: IStreamConsumerProperties },
   ): ITableWithStream {
     const table = this.createTable(id, {
       ...props,
@@ -218,7 +218,9 @@ export class DynamoDbTableFactory extends FactoryBase {
 
     return {
       table,
-      eventSource: this.addStreamConsumer(table, props.streamConsumer),
+      ...(props.streamConsumer
+        ? { eventSource: this.addStreamConsumer(table, props.streamConsumer) }
+        : {}),
     };
   }
 
@@ -250,8 +252,8 @@ export class DynamoDbTableFactory extends FactoryBase {
       enabled: props.enabled ?? constants.ENABLED,
     });
 
-    table.grantStreamRead(props.streamFunction);
     props.streamFunction.addEventSource(eventSource);
+    table.grantStreamRead(props.streamFunction);
 
     return eventSource;
   }
