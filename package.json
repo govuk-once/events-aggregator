@@ -52,7 +52,7 @@
     "eslint": "^10.13.0",
     "globals": "^17.13.0",
     "jiti": "^2.7.0",
-    "nock": "^14.0.17",
+    "nock": "^15.0.5",
     "prettier": "^3.9.10",
     "semantic-release": "^25.0.9",
     "ts-node": "^10.9.2",
